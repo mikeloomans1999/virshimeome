@@ -1,0 +1,17 @@
+######################
+## General settings ##
+######################
+
+PROJECT: test_case_vs2
+working_dir: /projects/arumugam/people/mnc390/virome_pipelines/shime_virome_pipeline/test/
+local_dir: /projects/arumugam/people/mnc390/virome_pipelines/shime_virome_pipeline/test/
+threads: 8
+
+#####################
+##  Tool settings  ##
+#####################
+max_contig_length: 500000
+min_contig_length: 1500
+min_score_vir_recognition: 0.5
+contig_dir: /projects/arumugam/people/mnc390/virome_pipelines/shime_virome_pipeline/test/MAGS
+output_dir: /projects/arumugam/scratch/mnc390/virome_testing/vs2_output
