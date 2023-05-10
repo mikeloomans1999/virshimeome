@@ -33,7 +33,7 @@ threads = config["threads"]
 
 # Output
 output_dir=config["output_dir"]
-combined_fasta_file_path=path.join(output_dir, f"vir_recognition_contigs_combined_max_length_{max_contig_length}")
+combined_fasta_file_path=path.join(output_dir, f"vir_recognition_contigs_combined_max_length_{max_contig_length}.fasta")
 viral_combined = path.join(output_dir, "final-viral-combined.fa"),
 final_score = path.join(output_dir, "final-viral-score.tsv"),
 viral_boundary = path.join(output_dir, "final-viral-boundary.tsv")
@@ -128,7 +128,16 @@ rule vir_recognition:
             all
 
         """
-        
+
+# Check using checkV
+
+
+# Map using bwa
+
+
+
 # Run relative abundance estimate in another snakemake file. 
+# msamtools profile --multi=proportional --label=sample1 --unit=rel -o sample1.IGC.profile.txt.gz sample1.IGC.filtered.bam
+
 
 # rule taxonomic_characterization:

@@ -1,0 +1,8 @@
+######################
+# General settings
+######################
+local_dir: /projects/arumugam/scratch/mnc390/virome_testing
+virshimeome_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome
+
+download_memory: 5
+download_threads: 2
