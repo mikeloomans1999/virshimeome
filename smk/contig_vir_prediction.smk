@@ -21,23 +21,33 @@ import glob
 max_contig_length = config["max_contig_length"]
 working_dir = config["working_dir"]
 local_dir = config["local_dir"]
+virshimeome_dir=config["virshimeome_dir"]
 contig_dir = config["contig_dir"]
 all_fasta_file_paths = glob.glob(path.join(contig_dir,"**", "*.fasta"), recursive=True)
-# pipeline_dir = config["pipeline_dir"] if config["pipeline_dir"] != "" else getcwd()
+hq_reads_dir=config["hq_reads_dir"] # This will be subdivided into numerous dirs and a things will have to be setup to iterate through them :(.
 
 # Params
 min_contig_length = config["min_contig_length"]
 min_score_vir_recognition = config["min_score_vir_recognition"]
 threads = config["threads"]
+algorithm_bwa=config["algorithm_bwa"]
+memory=config["memory"]
+cores=config["cores"]
 # circular  yet to be determined if used. 
 
-# Output
+# Output dir
 output_dir=config["output_dir"]
+# preprocessing. 
 combined_fasta_file_path=path.join(output_dir, f"vir_recognition_contigs_combined_max_length_{max_contig_length}.fasta")
+# Viral prediction
 viral_combined = path.join(output_dir, "final-viral-combined.fa"),
-final_score = path.join(output_dir, "final-viral-score.tsv"),
+viral_score = path.join(output_dir, "final-viral-score.tsv"),
 viral_boundary = path.join(output_dir, "final-viral-boundary.tsv")
+contig_quality_summary= path.join(output_dir,"quality_summary.tsv")
 
+# Mapping to reads to contigs"
+bam_file_alignment=path.join(output_dir, "reads_mapped_to_contigs.bam")
+cram_file_alignment=path.join(output_dir, "reads_mapped_to_contigs.cram")
 
 #############
 ##  Rules  ##
@@ -47,7 +57,7 @@ rule all:
         combined_fasta_file_path,
         output_dir,
         viral_combined,
-        final_score,
+        viral_score,
         viral_boundary
 
 rule combine_fasta_files:
@@ -150,7 +160,7 @@ rule checkv:
         echo checkv end_to_end \
             {viral_combined} \
             $outdir \
-            -t {threads}
+            -t {threads} \
 
         """
 
@@ -177,10 +187,10 @@ rule relative_abundance_estimation:
         reads=path.join(hq_reads_dir, "sample_?.fg.gz"), # TODO reads
         viral_combined = viral_combined, # contigs
     output:
-        bam_file_aligner=bam_file_aligner,
-        cram_file_aligner=cram_file_aligner
+        bam_file_alignment=bam_file_alignment,
+        cram_file_alignment=cram_file_alignment
     params:
-        algorithm=algorithm_bwa, # mem is  default
+        algorithm_bwa=algorithm_bwa, # mem is  default
         memory=memory,
         cores=cores
     shell:
@@ -188,7 +198,7 @@ rule relative_abundance_estimation:
         echo bwa mem \
             -t {threads} \
             -a \
-            -x {params.algorithm} \
+            -x {params.algorithm_bwa} \
             {input.viral_combined}  < (cat {input.reads}) \
         | \
         samtools view \
@@ -196,11 +206,11 @@ rule relative_abundance_estimation:
             -b \
         | \
         samtools sort \
-            -m {params.memory} -@ {params.cores} -T {output.bam_file_aligner} \
+            -m {params.memory} -@ {params.cores} -T {output.bam_file_alignment} \
         | \
         samtools view \
             -C -T \
-            {input.viral_combined} > {output.cram_file_aligner}
+            {input.viral_combined} > {output.cram_file_alignment}
 
         """
 ##########################
@@ -209,7 +219,7 @@ rule relative_abundance_estimation:
 # Use msamtools later on to determine the relative abundance of viral species. 
 rule:
     input:
-        cram_file_aligner=cram_file_aligner,
+        cram_file_alignment=cram_file_alignment,
     output:
         relative_abundance_profile_file=relative_abundance_profile_file #.txt.gz
     params:
@@ -217,9 +227,6 @@ rule:
         length_sequence_abundance=length_sequence_abundance,
         percentage_identity_abundance=percentage_identity_abundance,
         percentage_read_aligned_abundance=percentage_read_aligned_abundance,
-
-
-
     shell:
         # Normalize for sequence length. 
         # Calculate relative abundance. 
@@ -229,7 +236,7 @@ rule:
             -l {params.length_sequence_abundance} \
             -p {params.percentage_identity_abundance} \
             -z {params.percentage_read_aligned_abundance} \
-            --besthit {input.cram_file_aligner} \
+            --besthit {input.cram_file_alignment} \
         | \
         msamtools profile \
             --label={input.project_name} \
