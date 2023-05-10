@@ -6,6 +6,7 @@ PROJECT: test_case_vs2
 working_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimome/test/
 local_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimome/test/
 threads: 8
+memory: 20 # In gigabytes
 
 #####################
 ##  Tool settings  ##

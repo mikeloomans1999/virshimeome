@@ -97,13 +97,16 @@ rule combine_fasta_files:
         # Write combined fasta file 
         write_concat_fasta_files(circular_fasta_file_paths, combined_fasta_file_path)
 
+#######################
+##  vir recognition  ##
+#######################
 rule vir_recognition:
     input:
         fasta_files = combined_fasta_file_path
     output:
-        viral_combined = path.join(output_dir, "final-viral-combined.fa"),
-        viral_score = path.join(output_dir, "final-viral-score.tsv"),
-        viral_boundary = path.join(output_dir, "final-viral-boundary.tsv")
+        viral_combined = viral_combined,
+        viral_score = viral_score,
+        viral_boundary = viral_boundary 
     params:
         min_contig_length = min_contig_length,
         min_score = min_score_vir_recognition
@@ -129,15 +132,111 @@ rule vir_recognition:
 
         """
 
-# Check using checkV
+##############
+##  checkv  ##
+##############
+# TODO check usage without contamination step. 
+rule checkv:
+    input:
+        viral_combined=viral_combined,
+    output:
+        contig_quality_summary = contig_quality_summary,
+    threads:
+        threads
+    shell:
+        """
+        outdir=$(dirname {output.contig_quality_summary})        
+        mkdir -p $outdir
+        echo checkv end_to_end \
+            {viral_combined} \
+            $outdir \
+            -t {threads}
 
+        """
+
+"""
+The -x option in BWA-MEM specifies the algorithm and parameters to use for finding maximum exact matches (MEMs) during the seeding stage of read alignment. Specifically, the -x option takes a string argument that specifies the MEM algorithm and its parameters.
+
+The available -x options are:
+
+    -x ont2d: for Oxford Nanopore reads, which have high error rates, this option enables a more sensitive seeding algorithm that is better at handling the high error rate data.
+    -x intractg: for long-read inter-chromosomal alignment, this option enables a more sensitive seeding algorithm that is better at handling inter-chromosomal gaps.
+    -x sr: for short reads, this option uses the original BWA algorithm for seeding and is recommended for reads shorter than 70bp.
+    -x spliced: for RNA-seq data, this option allows for the detection of spliced alignments. This mode uses a different seeding algorithm and allows for gap extension during the alignment process.
+
+The default option is -x mem, which is recommended for most scenarios and uses a sensitive MEM algorithm suitable for short and long reads.
+"""
 
 # Map using bwa
+# get contigs as reference and use the high quality paired-end reads to map to those reference reads. 
+#################################
+##  mappping to viral contigs  ##
+#################################
+rule relative_abundance_estimation:
+    input:
+        reads=path.join(hq_reads_dir, "sample_?.fg.gz"), # TODO reads
+        viral_combined = viral_combined, # contigs
+    output:
+        bam_file_aligner=bam_file_aligner,
+        cram_file_aligner=cram_file_aligner
+    params:
+        algorithm=algorithm_bwa, # mem is  default
+        memory=memory,
+        cores=cores
+    shell:
+        """
+        echo bwa mem \
+            -t {threads} \
+            -a \
+            -x {params.algorithm} \
+            {input.viral_combined}  < (cat {input.reads}) \
+        | \
+        samtools view \
+            -F4 \
+            -b \
+        | \
+        samtools sort \
+            -m {params.memory} -@ {params.cores} -T {output.bam_file_aligner} \
+        | \
+        samtools view \
+            -C -T \
+            {input.viral_combined} > {output.cram_file_aligner}
+
+        """
+##########################
+##  relative abundance  ##
+##########################
+# Use msamtools later on to determine the relative abundance of viral species. 
+rule:
+    input:
+        cram_file_aligner=cram_file_aligner,
+    output:
+        relative_abundance_profile_file=relative_abundance_profile_file #.txt.gz
+    params:
+        project_name=project_name,
+        length_sequence_abundance=length_sequence_abundance,
+        percentage_identity_abundance=percentage_identity_abundance,
+        percentage_read_aligned_abundance=percentage_read_aligned_abundance,
 
 
 
-# Run relative abundance estimate in another snakemake file. 
-# msamtools profile --multi=proportional --label=sample1 --unit=rel -o sample1.IGC.profile.txt.gz sample1.IGC.filtered.bam
+    shell:
+        # Normalize for sequence length. 
+        # Calculate relative abundance. 
+        """
+        echo msamtools filter \
+            -b -u \
+            -l {params.length_sequence_abundance} \
+            -p {params.percentage_identity_abundance} \
+            -z {params.percentage_read_aligned_abundance} \
+            --besthit {input.cram_file_aligner} \
+        | \
+        msamtools profile \
+            --label={input.project_name} \
+            -o {output.relative_abundance_profile_file}
+                     
+        """
 
+# Run R code to make pretty graphs etc.. in another conda environment. 
 
 # rule taxonomic_characterization:

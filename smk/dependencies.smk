@@ -23,14 +23,14 @@ print(" *******************************")
 print("  ")
 
 # Variables from configuration yaml file
-if config['minto_dir'] is None:
+if config['virshimeome_dir'] is None:
     #print('ERROR in ')
-    print('ERROR in ', config_path, ': minto_dir variable is empty. Please, complete ', config_path)
-elif path.exists(config['minto_dir']) is False:
+    print('ERROR in ', config_path, ': virshimeome_dir variable is empty. Please, complete ', config_path)
+elif path.exists(config['virshimeome_dir']) is False:
     #print('ERROR in ')
-    print('ERROR in ', config_path, ': minto_dir variable path does not exit. Please, complete ', config_path)
+    print('ERROR in ', config_path, ': virshimeome_dir variable path does not exit. Please, complete ', config_path)
 else:
-    minto_dir=config["minto_dir"]
+    virshimeome_dir=config["virshimeome_dir"]
 
 if config['local_dir'] is None:
     #print('ERROR in ')
@@ -52,4 +52,40 @@ elif type(config['download_memory']) != int:
     print('ERROR in ', config_path, ': download_memory variable is not an integer. Please, complete ', config_path)
 else:
     download_memory=config["download_memory"]
+
+# Download virsorter2 database and profiles. 
+data_dir=directory(path.join(virshimeome_dir,"data"))
+pfam_hmm_list = [f"Pfam-A-{hmm_type}.hmm" for hmm_type in ["acc2desc", "Archaea", "Bacteria", "Eukaryota", "Mixed", "Viruses"]]
+rbs_list=[f"rbs-catetory{notes}.tsv" for note in ["notes", ""]]
+group_list=["dsDNAphage","lavidaviridae","NCLDV","RNA", "ssDNA"]
+group_files=["hallmark-gene.list", "model"]
+rule vs_two_db:
+    output:
+        pfam_hmm_files=expand(path.join(virshimeome_dir, "data", "db","pfam",{hmm_file}), hmm_file=pfam),
+        viral_hmm=path.join(virshimeome_dir,"data","db","hmm", "viral", "combined.hmm"),
+        rbs_files=expand(path.join(virshimeome_dir,"data","db","rbs",{rbs_file}),rbs_file=rbs_list),
+        group_files=expand(path.join(virshimeome_dir,"data", "db","group",{group},{file}), group=group_list, file=group_files)
+    params:
+        data_dir=data_dir
+    threads:
+        download_threads
+    conda:
+        path.join(virshimeome_dir, "envs", "virshimeome.yml")
+    shell:
+        """
+        virsorter setup -d db -j {threads} {parmas.data_dir}
+        """
+
+# Download checkv database and profiles. 
+rule checv_db:
+    output:
+        check_v_db=expand(path.join(virshimeome_dir, "data", "checkv-db-v1.5", {db_file}), db_file=["hmm_db","genome_db"])
+    params:
+        data_dir=data_dir
+    conda:
+        path.join(virshimeome_dir, "envs", "virshimeome.yml")
+    shell:
+        """
+        checkv download_database {params.data_dir}
+        """
 
