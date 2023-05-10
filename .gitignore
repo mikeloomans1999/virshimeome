@@ -162,3 +162,5 @@ cython_debug/
 test/
 bwa.kit/
 bwa*
+snakemake/
+data/
