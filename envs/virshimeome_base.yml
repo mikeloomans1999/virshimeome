@@ -8,4 +8,3 @@ dependencies:
   - samtools=1.14
   - virsorter=2.2.4
   - checkv=1.0.1
-prefix: virshimeome

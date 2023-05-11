@@ -18,6 +18,7 @@ import glob
 #################
 
 # Input
+project_name=config["PROJECT"]
 max_contig_length = config["max_contig_length"]
 working_dir = config["working_dir"]
 local_dir = config["local_dir"]
@@ -33,6 +34,9 @@ threads = config["threads"]
 algorithm_bwa=config["algorithm_bwa"]
 memory=config["memory"]
 cores=config["cores"]
+min_length_alignment_abundance=config["min_length_alignment_abundance"]
+percentage_identity_abundance=config["percentage_identity_abundance"]
+percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
 # circular  yet to be determined if used. 
 
 # Output dir
@@ -49,6 +53,16 @@ contig_quality_summary= path.join(output_dir,"quality_summary.tsv")
 bam_file_alignment=path.join(output_dir, "reads_mapped_to_contigs.bam")
 cram_file_alignment=path.join(output_dir, "reads_mapped_to_contigs.cram")
 
+# Relative abundance
+relative_abundance_profile_file=path.join(output_dir, "relative_abundance_summary.txt.gz")
+#################
+##  Functions  ##
+#################
+
+def get_read_input(hq_reads_dir):
+    # hq_reads_dir
+    return glob.glob(path.join(hq_reads_dir,"**", "*.fq.gz"), recursive=True)
+
 #############
 ##  Rules  ##
 #############
@@ -58,7 +72,10 @@ rule all:
         output_dir,
         viral_combined,
         viral_score,
-        viral_boundary
+        viral_boundary,
+        contig_quality_summary,
+        cram_file_alignment,
+        relative_abundance_profile_file
 
 rule combine_fasta_files:
     input:
@@ -182,9 +199,11 @@ The default option is -x mem, which is recommended for most scenarios and uses a
 #################################
 ##  mappping to viral contigs  ##
 #################################
-rule relative_abundance_estimation:
+rule align_reads_to_contigs:
     input:
-        reads=path.join(hq_reads_dir, "sample_?.fg.gz"), # TODO reads
+        reads_1=path.join(hq_reads_dir, "D114_1.fg.gz"), 
+        reads_2=path.join(hq_reads_dir, "D114_2.fg.gz"), 
+        reads=path.join(hq_reads_dir, "D114.?.fg.gz"), # TODO reads
         viral_combined = viral_combined, # contigs
     output:
         bam_file_alignment=bam_file_alignment,
@@ -217,14 +236,14 @@ rule relative_abundance_estimation:
 ##  relative abundance  ##
 ##########################
 # Use msamtools later on to determine the relative abundance of viral species. 
-rule:
+rule relative_abundance_estimation:
     input:
         cram_file_alignment=cram_file_alignment,
     output:
         relative_abundance_profile_file=relative_abundance_profile_file #.txt.gz
     params:
         project_name=project_name,
-        length_sequence_abundance=length_sequence_abundance,
+        min_length_alignment_abundance=min_length_alignment_abundance,
         percentage_identity_abundance=percentage_identity_abundance,
         percentage_read_aligned_abundance=percentage_read_aligned_abundance,
     shell:
@@ -233,7 +252,7 @@ rule:
         """
         echo msamtools filter \
             -b -u \
-            -l {params.length_sequence_abundance} \
+            -l {params.min_length_alignment_abundance} \
             -p {params.percentage_identity_abundance} \
             -z {params.percentage_read_aligned_abundance} \
             --besthit {input.cram_file_alignment} \

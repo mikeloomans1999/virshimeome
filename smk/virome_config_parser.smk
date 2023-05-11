@@ -133,7 +133,7 @@ else:
 if config["memory"] is None:
     print('ERROR in ', config_path, ': the memory variable is empty. Please, complete')
     memory=config["memory"]
-elif type(config["memory"]) is int:
+elif type(config["memory"]) != int:
     print('ERROR in ', config_path, ': the memory is not an interger. Please, complete', config_path)
     memory=config["memory"]
 else:
@@ -143,8 +143,38 @@ else:
 if config["cores"] is None:
     print('ERROR in ', config_path, ': the cores variable is empty. Please, complete')
     cores=config["cores"]
-elif type(config["cores"]) is int:
+elif type(config["cores"]) != int:
     print('ERROR in ', config_path, ': the cores is not an interger. Please, complete', config_path)
     cores=config["cores"]
 else:
     cores=config["cores"]
+
+# RELATIVE ABUNDANCE MIN LENGTH READ ALIGNMENT
+if config["min_length_alignment_abundance"] is None:
+    print('ERROR in ', config_path, ': the min_length_alignment_abundance variable is empty. Please, complete')
+    min_length_alignment_abundance=config["min_length_alignment_abundance"]
+elif type(config["min_length_alignment_abundance"]) != int:
+    print('ERROR in ', config_path, ': the min_length_alignment_abundance is not an interger. Please, complete', config_path)
+    min_length_alignment_abundance=config["min_length_alignment_abundance"]
+else:
+    min_length_alignment_abundance=config["min_length_alignment_abundance"]
+
+# PERCENTAGE IDENTITY FOR ABUNDANCE     
+if config["percentage_identity_abundance"] is None:
+    print('ERROR in ', config_path, ': the percentage_identity_abundance variable is empty. Please, complete')
+    percentage_identity_abundance=config["percentage_identity_abundance"]
+elif type(config["percentage_identity_abundance"]) != int and type(config["percentage_identity_abundance"]) != float :
+    print('ERROR in ', config_path, ': the percentage_identity_abundance is not an interger or float. Please, complete', config_path)
+    percentage_identity_abundance=config["percentage_identity_abundance"]
+else:
+    percentage_identity_abundance=config["percentage_identity_abundance"]
+
+# PERCENTAGE OF READ ALIGNED FOR ABUNDANCE
+if config["percentage_read_aligned_abundance"] is None:
+    print('ERROR in ', config_path, ': the percentage_read_aligned_abundance variable is empty. Please, complete')
+    percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
+elif type(config["percentage_read_aligned_abundance"]) != int and type(config["percentage_read_aligned_abundance"]) != float :
+    print('ERROR in ', config_path, ': the percentage_read_aligned_abundance is not an interger or float. Please, complete', config_path)
+    percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
+else:
+    percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
