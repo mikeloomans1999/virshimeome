@@ -139,6 +139,8 @@ rule vir_recognition:
         min_score = min_score_vir_recognition
     threads:
         threads
+    conda:
+        path.join(virshimeome_dir, "envs", "virshimeome_base.yml")
     shell:
         """
         outdir=$(dirname {output.viral_combined})        
@@ -170,6 +172,8 @@ rule checkv:
         contig_quality_summary = contig_quality_summary,
     threads:
         threads
+    conda:
+        path.join(virshimeome_dir, "envs", "virshimeome_base.yml")
     shell:
         """
         outdir=$(dirname {output.contig_quality_summary})        
@@ -212,6 +216,8 @@ rule align_reads_to_contigs:
         algorithm_bwa=algorithm_bwa, # mem is  default
         memory=memory,
         cores=cores
+    conda:
+        path.join(virshimeome_dir, "conda_env", "virshimeome_base") # bwa & samtools
     shell:
         """
         echo bwa mem \
@@ -245,7 +251,9 @@ rule relative_abundance_estimation:
         project_name=project_name,
         min_length_alignment_abundance=min_length_alignment_abundance,
         percentage_identity_abundance=percentage_identity_abundance,
-        percentage_read_aligned_abundance=percentage_read_aligned_abundance,
+        percentage_read_aligned_abundance=percentage_read_aligned_abundance
+    conda:
+        path.join(virshimeome_dir, "conda_env", "virshimeome_base") # msamtools
     shell:
         # Normalize for sequence length. 
         # Calculate relative abundance. 

@@ -3,11 +3,11 @@
 ######################
 
 PROJECT: test_case_vs2
-working_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimome/test
-local_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimome/test
-virshimeome_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimome
-hq_reads_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimome/test/reads
-contig_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimome/test/MAGS
+working_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome/test
+local_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome/test
+virshimeome_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome
+hq_reads_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome/test/reads
+contig_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome/test/MAGS
 output_dir: /projects/arumugam/scratch/mnc390/virome_testing/vs2_output
 threads: 8
 memory: 20 # In gigabytes
