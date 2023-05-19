@@ -32,7 +32,7 @@ check_v_db_dir=path.join(data_dir, "checkv_db")
 #################
 # Define a function to expand the list of Pfam HMM files
 def pfam_hmm_files():
-    pfam_dir_db=path.join(vs2_db_dir, "pfam")
+    pfam_dir_db=path.join(vs2_db_dir,"hmm", "pfam")
     pfam_hmm_list = [f"Pfam-A-{hmm_type}.hmm" for hmm_type in ["acc2desc", "Archaea", "Bacteria", "Eukaryota", "Mixed", "Viruses"]]
     return expand("{pfam_dir_db}" + os.sep + "{hmm_file}", pfam_dir_db=pfam_dir_db, hmm_file=pfam_hmm_list)
 # Define a function to expand the list of RBS files
@@ -89,24 +89,24 @@ rule vs_two_db:
     shell:
         """
         mkdir -p {params.data_dir}
-        virsorter setup -d {vs2_db_dir} -j {threads} 
+        virsorter setup -d {vs2_db_dir} -j {threads} --scheduler greedy
         """
 
 # Download checkv database and profiles. 
 rule checv_db:
     output:
         check_v_genome_db(),
-        check_v_hmm_db()
+        check_v_hmm_db(),
+        check_v_db_dir=directory(check_v_db_dir)
     params:
         data_dir=data_dir,
-        check_v_db_dir=check_v_db_dir
     conda:
         "virshimeome" #checkv
     shell:
         """
         mkdir -p {params.data_dir}
         checkv download_database {data_dir}
-        tar -xvzf {params.data_dir}/checkv-db-v*.tar.gz {params.check_v_db_dir}
-        export CHECKVDB={params.check_v_db_dir}
+        mv {data_dir}/checkv-db* {output.check_v_db_dir}
+        export CHECKVDB={output.check_v_db_dir}
         """
 

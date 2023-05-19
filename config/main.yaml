@@ -1,0 +1,32 @@
+######################
+## General settings ##
+######################
+# Dirs
+PROJECT: test_main
+working_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome
+local_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome
+virshimeome_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome
+hq_reads_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/reads
+contig_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/MAGS
+output_dir: /projects/arumugam/scratch/mnc390/virome_testing/vs2_output
+# Resources 
+threads: 8
+cores: 4
+memory: 20 # In gigabytes
+
+#####################
+##  Tool settings  ##
+#####################
+# Contig selection (custom script & virsorter2)
+max_contig_length: 500000
+min_contig_length: 1500
+min_score_vir_recognition: 0.5
+
+# Read to contig alignment (BWA)
+algorithm_bwa: mem
+# Add more options for bwa mapping after the program as a whole is working. 
+
+# Relative abundance (samtools & msamtools)
+min_length_alignment_abundance: 80
+percentage_identity_abundance: 95 # Percentage not decimal
+percentage_read_aligned_abundance: 80 # Percentage not decimal
