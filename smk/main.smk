@@ -146,7 +146,9 @@ rule vir_recognition:
     """
     input:
         #fasta_files = contig_concatenation_file_path
-        expand("{sample_output_dirs}/vir_recognition_contigs_combined_max_length_{max_contig_length}.fasta", sample_output_dirs=sample_output_dirs, max_contig_length=max_contig_length)
+        expand("{sample_output_dirs}/vir_recognition_contigs_combined_max_length_{max_contig_length}.fasta", 
+                sample_output_dirs=sample_output_dirs, 
+                max_contig_length=max_contig_length)
     output:
         # viral_combined = viral_combined,
         viral_combined = expand("{sample_output_dir}/final-viral-combined.fa", sample_output_dir = sample_output_dirs),

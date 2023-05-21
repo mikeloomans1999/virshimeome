@@ -12,6 +12,8 @@ include: 'main_config_parser.smk'
 ###############
 from os import path, mkdir
 import glob
+# from re import sub
+from itertools import groupby
 
 #################
 ##  Functions  ##
@@ -34,12 +36,12 @@ project_name=config["PROJECT"]
 # local_dir = config["local_dir"]
 virshimeome_dir=config["virshimeome_dir"]
 hq_reads_dir=directory(config["hq_reads_dir"]) # This will be subdivided into numerous dirs and a things will have to be setup to iterate through them :(.
-sample_ids = [abs_dir_path.split(os.sep)[-1] for abs_dir_path in get_subdirectories(hq_reads_dir)]
-checkv_db=path.join(virshimeome_dir, "data", "checkv_db")
 main_contig_dir=config["contig_dir"]
+checkv_db=path.join(virshimeome_dir, "data", "checkv_db")
 script_dir=path.join(virshimeome_dir, "scripts")
+sample_ids = [abs_dir_path.split(os.sep)[-1] for abs_dir_path in get_subdirectories(main_contig_dir)]
 fasta_contig_file_paths = glob.glob(path.join(main_contig_dir, "**", "*.fasta"), recursive=True) # have an additional check in place for look for the fasta files here. 
-
+sample_ids = [prospective_dir.split("/")[-1] for prospective_dir in glob.glob(os.path.join(main_contig_dir, '*')) if os.path.isdir(prospective_dir)]
 
 # Params #
 # Resources
@@ -48,6 +50,7 @@ threads = config["threads"]
 cores=config["cores"]
 
 # Contig selection (custom script & virsorter2)
+circular = config["circular"]
 min_contig_length = config["min_contig_length"]
 max_contig_length = config["max_contig_length"]
 min_score_vir_recognition = config["min_score_vir_recognition"]
@@ -67,11 +70,11 @@ percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
 output_dir = config["output_dir"]
 
 # Individual output directories, sample specific. 
-sample_output_dirs = directory(expand("{output_dir}"+os.sep+"{sample_id}", 
-                    output_dir=output_dir, sample_id=sample_ids))
+sample_output_dirs = [os.path.join(output_dir,sample_id) for sample_id in sample_ids]
+make_dirs(sample_output_dirs)
 
 # preprocessing. 
-contig_concatenation_file_path = expand("{sample_output_dirs}/vir_recognition_contigs_combined_max_length.fasta",
+contig_concatenation_file_path = expand("{sample_output_dirs}/contigs_combined.fasta",
                     sample_output_dirs=sample_output_dirs,max_contig_length=max_contig_length)
 
 # Viral prediction output
@@ -84,19 +87,34 @@ viral_boundary = expand("{sample_output_dir}/final-viral-boundary.tsv",
 contig_quality_summary= expand("{sample_output_dir}/quality_summary.tsv", 
                     sample_output_dir=sample_output_dirs)
 
-make_dirs(sample_output_dirs)
-
 #############
 ##  Rules  ##
 #############
 rule all:
     input:
-        expand("{sample_output_dir}/vir_recognition_contigs_combined_max_length.fasta",
-                sample_output_dir=sample_output_dirs, max_contig_length=max_contig_length),
-        output_dir,
+        expand("{main_dir}/{sample_dir}/combined_contigs.fasta", 
+            main_dir=output_dir, 
+            sample_dir=sample_ids, 
+            ),
+        
         # viral_combined,
-        expand("{sample_output_dir}/final-viral-combined.fa", sample_output_dir = sample_output_dirs),
-        contig_quality_summary,
+        expand("{main_dir}/{sample_dir}/combined_contigs.fasta", 
+            main_dir=output_dir, 
+            sample_dir=sample_ids, 
+            ),
+        
+        expand("{main_dir}/{sample_dir}/combined_contigs.fasta", 
+            main_dir=output_dir, 
+            sample_dir=sample_ids, 
+            ),
+
+        expand("{main_dir}/{sample_dir}/combined_contigs.fasta", 
+            main_dir=output_dir, 
+            sample_dir=sample_ids, 
+            )
+        # expand("{sample_output_dir}/final-viral-combined.fa", 
+        #         sample_output_dir = sample_output_dirs),
+        # contig_quality_summary,
 
 ###########################
 ##  fasta concatenation  ##
@@ -107,38 +125,54 @@ rule combine_fasta_files:
     assuming ech file contains one contig. 
     """
     input:
-        fasta_contig_file_paths = fasta_contig_file_paths,
+        fasta_files = lambda wildcards: glob.glob(
+            os.path.join(main_contig_dir, wildcards.sample_dir, "*.fna")
+            )
     output:
-        contig_concatenation_file_path = "{sample_output_dir}/vir_recognition_contigs_combined_max_length.fasta", 
+        combined_contig_file = "{output_dir}/{sample_dir}/combined_contigs.fasta"
     params:
-        output_dir = output_dir,
-        main_contig_dir = main_contig_dir,
-        max_contig_length = max_contig_length,
-        script = path.join(script_dir, 'fasta_concatenation.py')
+        max_contig_length=max_contig_length,
+        min_contig_length=min_contig_length,
+        circular=circular,
+        sample_contig_dir=main_contig_dir
     run:
-        def get_fasta_sequence_length_filename(fasta_filename):
-            """ Return the length listed in the filename """
-            filename_list = fasta_filename.split("_")
-            return int(filename_list[filename_list.index("length") + 1].replace(".fasta",""))
+        print("Start combination script\n")
         
-        def get_fasta_with_length_filter(min_length, sample_contig_dir):
-            """Returns all the fasta files in a specific directory that have less than the minimum length. """
-            return [fasta_filename for fasta_filename in glob.glob(path.join(sample_contig_dir, "**", "*.fasta"), recursive=True) 
-                    if get_fasta_sequence_length_filename(fasta_filename) <= int(min_length)]
+        def get_filtered_fasta(fasta_file, max_length, min_length, circular=""):
+            """ returns sequence ID and sequence in list format if its header matches the correct values, 
+                so every entry contains an ID and a sequence seperated by '\n' 
+                which can be printed with a simple loop. """
+            with open (fasta_file, 'rb') as fasta_file:
+                # https://www.biostars.org/p/710/#383479
+                faiter = (x[1] for x in groupby(fasta_file, lambda line: str(line, 'utf-8')[0] == ">"))
+                for header in faiter:
+                    seq_id = str(header.__next__(), 'utf-8')
+                    seq_id_list = seq_id.split("_")
+                    length = int(seq_id_list[seq_id_list.index("length")+1]) # TODO Move this step to an if function so it isn't excecuted every time.      
+                    seq = "".join(str(s, 'utf-8').strip() for s in faiter.__next__())+ "\n"
+                    if not (circular in seq_id and length <= max_length and length >= min_length):
+                        seq_id = "" # Change to null or None
+                        seq = ""
+                    yield (seq_id + seq)
 
-        def write_concat_fasta_files(fasta_filepaths, combined_fasta_filepath):
-            """ Writes combined fasta file from a given list of fasta file paths"""
-            with open(combined_fasta_filepath, 'a') as combined_fasta_file:
-                for fasta_filepath in fasta_filepaths:
-                    combined_fasta_file.write(f"{fasta_filepath.split(os.sep)[-1]}\n{get_fasta_sequence(fasta_filepath)}\n")
+        # Write new combined file.
+        combined_fasta_filepath = output.combined_contig_file
+        open(combined_fasta_filepath, mode='w').close()
 
-        print({params.sample_contig_dir})
-        small_fasta_files = get_fasta_with_length_filter({params.max_contig_length}, {params.sample_contig_dir})
-        
-        circular_fasta_file_paths = [filename for filename in small_fasta_files if "circular" in filename] # Get small circular genomes.
-        # Write combined fasta file 
-        write_concat_fasta_files(circular_fasta_file_paths, {output.contig_concatenation_file_path})
+        # get fasta files.
+        fasta_files = [stringed_fasta_files[0] for stringed_fasta_files in {input.fasta_files}]
 
+        # Open concat file in append mode and start adding sequences per MAG.
+        with open(combined_fasta_filepath, "a") as combined_fasta_file:
+            for seq_file in fasta_files:
+                fasta_to_write = get_filtered_fasta(
+                        fasta_file=seq_file, 
+                        max_length=params.max_contig_length, 
+                        min_length=params.min_contig_length, 
+                        circular=params.circular
+                        )
+                for line in fasta_to_write:
+                    combined_fasta_file.write(line) # Check if there is no double line stuff. 
 
 #######################
 ##  vir recognition  ##
@@ -185,31 +219,31 @@ rule vir_recognition:
             --scheduler greedy
         """
 
-##############
-##  checkv  ##
-##############
-# TODO check usage without contamination step. 
-rule checkv:
-    """
-    Runs CheckV which constructs quality reports of the viral prediction step, that classified the contigs. 
-    """
-    input:
-        viral_combined = viral_combined,
-        checkv_db = checkv_db
-    output:
-        contig_quality_summary = contig_quality_summary,
-    threads:
-        threads
-    conda:
-        path.join(virshimeome_dir, "envs", "virshimeome_base.yml")
-    shell:
-        """
-        outdir=$(dirname {output.contig_quality_summary})        
-        mkdir -p $outdir
-        echo checkv end_to_end \
-            -d {input.checkv_db}
-            {input.viral_combined} \
-            $outdir \
-            -t {threads} \
+# ##############
+# ##  checkv  ##
+# ##############
+# # TODO check usage without contamination step. 
+# rule checkv:
+#     """
+#     Runs CheckV which constructs quality reports of the viral prediction step, that classified the contigs. 
+#     """
+#     input:
+#         viral_combined = viral_combined,
+#         checkv_db = checkv_db
+#     output:
+#         contig_quality_summary = contig_quality_summary,
+#     threads:
+#         threads
+#     conda:
+#         path.join(virshimeome_dir, "envs", "virshimeome_base.yml")
+#     shell:
+#         """
+#         outdir=$(dirname {output.contig_quality_summary})        
+#         mkdir -p $outdir
+#         echo checkv end_to_end \
+#             -d {input.checkv_db}
+#             {input.viral_combined} \
+#             $outdir \
+#             -t {threads} \
 
-        """
+#         """

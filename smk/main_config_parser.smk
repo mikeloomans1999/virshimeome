@@ -115,6 +115,7 @@ elif type(config['output_dir']) != str:
     contig_dir = config['output_dir']
 elif path.exists(config['output_dir']) is False:
     print('WARNING in ', config_path, ': output_dir path does not exit. The directory will be created.')
+    os.mkdir(config["output_dir"])
     output_dir = config['output_dir']
 else:
     output_dir = config['output_dir']
@@ -178,3 +179,10 @@ elif type(config["percentage_read_aligned_abundance"]) != int and type(config["p
     percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
 else:
     percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
+
+# CIRCULAR
+if type(config["circular"]) != str:
+    print('ERROR in ', config_path, ': the config is not string. Please, complete', config_path)
+    circular=config["circular"]
+else:
+    circular=config["circular"]
