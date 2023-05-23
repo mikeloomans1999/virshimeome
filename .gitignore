@@ -166,3 +166,4 @@ bwa*
 .snakemake/
 data/
 conda_env/
+DeepVirFinder/
