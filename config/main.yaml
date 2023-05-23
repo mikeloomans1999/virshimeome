@@ -9,6 +9,7 @@ virshimeome_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome
 hq_reads_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/reads
 contig_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/MAGS
 output_dir: /projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output
+deep_vir_finder_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome/DeepVirFinder
 # Resources 
 threads: 8
 cores: 4
@@ -18,7 +19,7 @@ memory: 20 # In gigabytes
 ##  Tool settings  ##
 #####################
 # Contig selection (custom script & virsorter2)
-circular: _
+circular: circular
 max_contig_length: 500000
 min_contig_length: 1500
 min_score_vir_recognition: 0.5

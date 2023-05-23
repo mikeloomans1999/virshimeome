@@ -31,15 +31,14 @@ def make_dirs(abs_dir_list):
 
 # Input # 
 project_name=config["PROJECT"]
-# working_dir = config["working_dir"]
-# local_dir = config["local_dir"]
 virshimeome_dir=config["virshimeome_dir"]
 hq_reads_dir=directory(config["hq_reads_dir"]) # This will be subdivided into numerous dirs and a things will have to be setup to iterate through them :(.
 main_contig_dir=config["contig_dir"]
 checkv_db=path.join(virshimeome_dir, "data", "checkv_db")
 script_dir=path.join(virshimeome_dir, "scripts")
 fasta_contig_file_paths = glob.glob(path.join(main_contig_dir, "**", "*.fasta"), recursive=True) # have an additional check in place for look for the fasta files here. 
-# sample_ids = [prospective_dir.split("/")[-1] for prospective_dir in glob.glob(os.path.join(main_contig_dir, '*')) if os.path.isdir(prospective_dir)]
+sample_ids = [prospective_dir.split("/")[-1] for prospective_dir in glob.glob(os.path.join(main_contig_dir, '*')) if os.path.isdir(prospective_dir)]
+path_dvf_script = path.join(config["deep_vir_finder_dir"], "dvf.py")
 
 # Params #
 # Resources
@@ -66,36 +65,30 @@ percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
 
 # Global output directory, sample specific output directory. 
 output_dir = config["output_dir"]
-
-# Individual output directories, sample specific. 
-sample_ids = [""]
-sample_output_dirs = [os.path.join(output_dir,sample_id) for sample_id in sample_ids]
-
-# TODO use expand to make one function. 
-make_dirs(sample_output_dirs)
-make_dirs([path.join(dir, "1_1_vs") for dir in sample_output_dirs])
-make_dirs([path.join(dir, "1_2_checkv") for dir in sample_output_dirs])
+make_dirs(path.join(output_dir, step_dir) for step_dir in ["1_1_vs","1_2_checkv"])
 
 #############
 ##  Rules  ##
 #############
 rule all:
     input:
-        expand("{main_dir}/{sample_dir}/combined_contigs.fasta", 
+        expand("{main_dir}/combined_contigs.fasta", 
             main_dir=output_dir, 
-            sample_dir=sample_ids,
             ),
         
-        # Viral contig prediction. 
-        expand("{main_dir}/{sample_dir}/1_1_vs/final-viral-combined.fa", 
+        # Viral contig prediction (VS2)
+        expand("{main_dir}/1_1_vs/final-viral-combined.fa", 
             main_dir=output_dir, 
-            sample_dir=sample_ids, 
+            ),
+
+        # Viral contig prediction (DVF)
+        expand("{main_dir}/1_1_dvf/combined_contigs.fasta_gt1bp_dvfpred.txt",
+            main_dir=output_dir
             ),
         
         # CheckV 
-        expand("{main_dir}/{sample_dir}/1_2_checkv/quality_summary.tsv", 
+        expand("{main_dir}/1_2_checkv/quality_summary.tsv", 
             main_dir=output_dir,
-            sample_dir=sample_ids,
             )
 
 ###########################
@@ -108,10 +101,10 @@ rule combine_fasta_files:
     """
     input:
         fasta_files = lambda wildcards: glob.glob(
-            os.path.join(main_contig_dir, wildcards.sample_dir, "*.fna")
+            os.path.join(main_contig_dir, "**", "*.fna")
             )
     output:
-        combined_contig_file = "{output_dir}/{sample_dir}/combined_contigs.fasta"
+        combined_contig_file = "{output_dir}/combined_contigs.fasta"
     threads:
         1 
     params:
@@ -120,12 +113,12 @@ rule combine_fasta_files:
         circular=circular,
         sample_contig_dir=main_contig_dir
     run:        
-        def get_filtered_fasta(fasta_file, max_length, min_length, circular=""):
+        def get_filtered_fasta(fasta_file, max_length, min_length, circular="", description=""):
             # https://www.biostars.org/p/710/#383479
             with open(fasta_file, 'rb') as fasta_file_read:
                 faiter = (x[1] for x in groupby(fasta_file_read, lambda line: str(line, 'utf-8')[0] == ">"))
                 for header in faiter:
-                    seq_id = str(header.__next__(), 'utf-8')
+                    seq_id = str(header.__next__(), 'utf-8').replace("\n", "") + "_MAG_" + description + "\n"
                     seq_id_list = seq_id.split("_")
                     length = int(seq_id_list[seq_id_list.index("length") + 1])
                     seq = "".join(str(s, 'utf-8').strip() for s in faiter.__next__()) + "\n"
@@ -140,7 +133,8 @@ rule combine_fasta_files:
                     fasta_file=seq_file,
                     max_length=params.max_contig_length,
                     min_length=params.min_contig_length,
-                    circular=params.circular
+                    circular=params.circular,
+                    description=seq_file.split(os.sep)[-2]
                 )
                 combined_fasta_file.writelines(fasta_to_write)
 
@@ -148,19 +142,17 @@ rule combine_fasta_files:
 #######################
 ##  vir recognition  ##
 #######################
-rule vir_recognition:
+rule vir_sorter:
     """
-    Runs Virsorter2 to predict viral contigs for each sample. 
+    Runs Virsorter2 to predict viral contigs.
     """
     input:
-        # fasta_files = dynamic(lambda wildcards: [f for f in glob.glob("{output_dir}/{sample_dir}/*.fasta") if os.path.getsize(f) > 0])
-        fasta_files = "{output_dir}/{sample_dir}/combined_contigs.fasta"
+        fasta_files = "{output_dir}/combined_contigs.fasta"
     output:
-        viral_combined = "{output_dir}/{sample_dir}/1_1_vs/final-viral-combined.fa",
-        viral_score = "{output_dir}/{sample_dir}/1_1_vs/final-viral-score.tsv",
-        viral_boundary = "{output_dir}/{sample_dir}/1_1_vs/final-viral-boundary.tsv",  
+        viral_combined = "{output_dir}/1_1_vs/final-viral-combined.fa",
+        viral_score = "{output_dir}/1_1_vs/final-viral-score.tsv",
+        viral_boundary = "{output_dir}/1_1_vs/final-viral-boundary.tsv",  
     params:
-        min_contig_length = min_contig_length,
         min_score = min_score_vir_recognition
     threads:
         threads
@@ -176,19 +168,39 @@ rule vir_recognition:
             -j {threads} \
             all \
             --scheduler greedy
-        
-        if [ -s {input.fasta_files} ]; then
-            virsorter run \
-                -w $outdir \
-                -i {input.fasta_files} \
-                --min-length {params.min_contig_length} \
-                --min-score {params.min_score} \
-                -j {threads} \
-                all \
-                --scheduler greedy
-        else
-            touch {output.viral_combined} {output.viral_score} {output.viral_boundary} # Placeholder files
-        fi 
+
+        virsorter run \
+            -w $outdir \
+            -i {input.fasta_files} \
+            --min-score {params.min_score} \
+            -j {threads} \
+            all \
+            --scheduler greedy
+        """
+
+rule deep_vir_finder:
+    """
+    Runs DeepVirfinder to predict viral contigs.
+    """
+    input:
+        fasta_files = "{output_dir}/combined_contigs.fasta"
+    output:
+        dvf_summary = "{output_dir}/1_1_dvf/combined_contigs.fasta_gt1bp_dvfpred.txt"
+    params:
+        dvf_script = path_dvf_script
+    threads:
+        threads
+    conda:
+        path.join(virshimeome_dir, "envs", "deepvirfinder.yml")
+    shell:
+        """
+        outdir=$(dirname {output.dvf_summary})        
+        mkdir -p $outdir
+        python {params.dvf_script} \
+            -i {input.fasta_files} \
+            -o $outdir \
+            -c {threads}
+
         """
 
 # ##############
@@ -200,10 +212,10 @@ rule checkv:
     Runs CheckV which constructs quality reports of the viral prediction step, that classified the contigs. 
     """
     input:
-        viral_combined = "{output_dir}/{sample_dir}/1_1_vs/final-viral-combined.fa",
+        viral_combined = "{output_dir}/1_1_vs/final-viral-combined.fa",
         checkv_db = checkv_db
     output:
-        contig_quality_summary = "{output_dir}/{sample_dir}/1_2_checkv/quality_summary.tsv",
+        contig_quality_summary = "{output_dir}/1_2_checkv/quality_summary.tsv",
     threads:
         threads
     conda:
@@ -217,14 +229,11 @@ rule checkv:
             $outdir \
             -t {threads} \
             -d {input.checkv_db} 
-       
-        if [ -s {input.viral_combined} ]; then                
-            checkv end_to_end \
-                {input.viral_combined} \
-                $outdir \
-                -t {threads} \
-                -d {input.checkv_db} 
-        else
-            touch {output.contig_quality_summary} # Create placeholder file. 
-        fi
+             
+        checkv end_to_end \
+            {input.viral_combined} \
+            $outdir \
+            -t {threads} \
+            -d {input.checkv_db} 
+
         """

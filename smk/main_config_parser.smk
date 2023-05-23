@@ -101,10 +101,23 @@ elif type(config['contig_dir']) != str:
     print('ERROR in ', config_path, ': the contig_dir is not a string. Please, complete', config_path)
     contig_dir = config['contig_dir']
 elif path.exists(config['contig_dir']) is False:
-    print('WARNING in ', config_path, ': contig_dir path does not exit. The directory will be created.')
+    print('WARNING in ', config_path, ': contig_dir path does not exit. ')
     contig_dir = config['contig_dir']
 else:
     contig_dir = config['contig_dir']
+
+# DEEP VIR FINDER DIR
+if config['deep_vir_finder_dir'] is None:
+    print('ERROR in ', config_path, ': the deep_vir_finder_dir variable is empty. Please, complete')
+    deep_vir_finder_dir = config['deep_vir_finder_dir']
+elif type(config['deep_vir_finder_dir']) != str:
+    print('ERROR in ', config_path, ': the deep_vir_finder_dir is not a string. Please, complete', config_path)
+    deep_vir_finder_dir = config['deep_vir_finder_dir']
+elif path.exists(config['deep_vir_finder_dir']) is False:
+    print('WARNING in ', config_path, ': deep_vir_finder_dir path does not exit.')
+    deep_vir_finder_dir = config['deep_vir_finder_dir']
+else:
+    deep_vir_finder_dir = config['deep_vir_finder_dir']
 
 # OUTPUT DIR
 if config['output_dir'] is None:
