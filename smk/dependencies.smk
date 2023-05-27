@@ -109,7 +109,7 @@ rule vs_two_db:
         virsorter setup -d {params.vs2_db_dir} -j {threads} --scheduler greedy
         """
 # Construct checkV database. 
-rule checv_db:
+rule checkv_db:
     output:
         check_v_genome_files(),
         check_v_hmm_files(),
@@ -123,6 +123,6 @@ rule checv_db:
         mkdir -p {params.data_dir}
         checkv download_database {params.data_dir}
         mv {params.data_dir}/checkv-db* {output.check_v_db_dir}
-        export CHECKVDB = {output.check_v_db_dir}
+        export CHECKVDB={output.check_v_db_dir}
         """
 

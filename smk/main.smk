@@ -12,7 +12,7 @@ include: 'main_config_parser.smk'
 ##  Imports  ##
 ###############
 from os import path, mkdir
-import glob
+import glob, csv
 from itertools import groupby
 
 #################
@@ -44,7 +44,8 @@ path_dvf_script = path.join(config["deep_vir_finder_dir"], "dvf.py")
 # Params #
 # Resources
 memory=config["memory"]
-threads = config["threads"]
+# threads = config["threads"]
+threads = workflow.cores
 cores=config["cores"]
 
 # Contig selection (custom script & virsorter2)
@@ -53,6 +54,10 @@ circular = config["circular"]
 min_contig_length = config["min_contig_length"]
 max_contig_length = config["max_contig_length"]
 min_score_vir_recognition = config["min_score_vir_recognition"]
+
+# dvf contig selection
+min_score_dvf = config["min_score_dvf"]
+max_pval_dvf = config["max_pval_dvf"]
 
 # Checkv
 checkv_db_dir = path.join(virshimeome_dir, "data", "checkv_db")
@@ -77,6 +82,7 @@ make_dirs(path.join(output_dir, step_dir) for step_dir in ["1_1_vs","1_2_checkv"
 #############
 rule all:
     input:
+        # Merge and filter fasta files across MAGs
         expand("{main_dir}/combined_contigs.fasta", 
             main_dir=output_dir, 
             ),
@@ -90,26 +96,32 @@ rule all:
         expand("{main_dir}/1_1_dvf/combined_contigs.fasta_gt1bp_dvfpred.txt",
             main_dir=output_dir
             ),
+
+        # DVF to sequences
+        expand("{main_dir}/1_1_dvf/final-viral-combined.fa",
+            main_dir=output_dir
+            ),
         
         # CheckV 
-        expand("{main_dir}/1_2_checkv/quality_summary.tsv", 
+        expand("{main_dir}/1_2_checkv/{type}/quality_summary.tsv", 
             main_dir=output_dir,
+            type=["1_1_dvf", "1_1_vs"]
             )
 
 ###########################
 ##  fasta concatenation  ##
 ###########################
-rule combine_fasta_files:
+rule combine_sequence_files:
     """
     Runs a python instance that selects fasta files with a minimum amount of bases present in each file 
     assuming ech file contains one contig. 
     """
     input:
-        fasta_files = lambda wildcards: glob.glob(
+        sequence_files = lambda wildcards: glob.glob(
             os.path.join(main_contig_dir, "**", "*.fna")
             )
     output:
-        combined_contig_file = "{output_dir}/combined_contigs.fasta"
+        combined_contig_file = "{main_dir}/combined_contigs.fasta"
     threads:
         1 
     params:
@@ -118,30 +130,24 @@ rule combine_fasta_files:
         circular=circular,
         sample_contig_dir=main_contig_dir
     run:        
-        def get_filtered_fasta(fasta_file, max_length, min_length, circular="", description=""):
+        def read_fasta_file(fasta_file):
             # https://www.biostars.org/p/710/#383479
             with open(fasta_file, 'rb') as fasta_file_read:
                 faiter = (x[1] for x in groupby(fasta_file_read, lambda line: str(line, 'utf-8')[0] == ">"))
                 for header in faiter:
-                    seq_id = str(header.__next__(), 'utf-8').replace("\n", "") + "_MAG_" + description + "\n"
-                    seq_id_list = seq_id.split("_")
-                    length = int(seq_id_list[seq_id_list.index("length") + 1])
+                    seq_id = str(header.__next__(), 'utf-8').replace("\n", "") 
                     seq = "".join(str(s, 'utf-8').strip() for s in faiter.__next__()) + "\n"
-                    if not (circular in seq_id and min_length <= length <= max_length):
-                        seq_id = seq = ""
-                    yield seq_id + seq
+                    yield seq_id, seq
 
         # Open concat file in append mode and start adding sequences per MAG.
         with open(output.combined_contig_file, "a") as combined_fasta_file:
-            for seq_file in input.fasta_files:
-                fasta_to_write = get_filtered_fasta(
-                    fasta_file=seq_file,
-                    max_length=params.max_contig_length,
-                    min_length=params.min_contig_length,
-                    circular=params.circular,
-                    description=seq_file.split(os.sep)[-2]
-                )
-                combined_fasta_file.writelines(fasta_to_write)
+            for seq_file in input.sequence_files:
+                for seq_id, seq in read_fasta_file(seq_file):
+                    seq_id_list = seq_id.split("_")
+                    length = int(seq_id_list[seq_id_list.index("length") + 1])
+                    if params.circular in seq_id and params.min_contig_length <= length <= params.max_contig_length:
+                        description = seq_file.split(os.sep)[-2] # MAG or sampleID
+                        combined_fasta_file.write(f"{seq_id}_MAG_{description}\n{seq}")
 
 
 #######################
@@ -152,11 +158,11 @@ rule vir_sorter:
     Runs Virsorter2 to predict viral contigs.
     """
     input:
-        fasta_files = "{output_dir}/combined_contigs.fasta"
+        sequence_files = "{main_dir}/combined_contigs.fasta"
     output:
-        viral_combined = "{output_dir}/1_1_vs/final-viral-combined.fa",
-        viral_score = "{output_dir}/1_1_vs/final-viral-score.tsv",
-        viral_boundary = "{output_dir}/1_1_vs/final-viral-boundary.tsv",  
+        viral_combined = "{main_dir}/1_1_vs/final-viral-combined.fa",
+        viral_score = "{main_dir}/1_1_vs/final-viral-score.tsv",
+        viral_boundary = "{main_dir}/1_1_vs/final-viral-boundary.tsv",  
     params:
         min_score = min_score_vir_recognition,
         vs_db_dir = vs_db_dir
@@ -170,7 +176,7 @@ rule vir_sorter:
         mkdir -p $outdir
         echo virsorter run \
             -w $outdir \
-            -i {input.fasta_files} \
+            -i {input.sequence_files} \
             -j {threads} \
             all \
             --scheduler greedy
@@ -178,7 +184,7 @@ rule vir_sorter:
         virsorter config --init-source --db-dir={params.vs_db_dir}
         virsorter run \
             -w $outdir \
-            -i {input.fasta_files} \
+            -i {input.sequence_files} \
             --min-score {params.min_score} \
             -j {threads} \
             all \
@@ -190,9 +196,9 @@ rule deep_vir_finder:
     Runs DeepVirfinder to predict viral contigs.
     """
     input:
-        fasta_files = "{output_dir}/combined_contigs.fasta"
+        sequence_files = "{main_dir}/combined_contigs.fasta"
     output:
-        dvf_summary = "{output_dir}/1_1_dvf/combined_contigs.fasta_gt1bp_dvfpred.txt"
+        dvf_summary = "{main_dir}/1_1_dvf/combined_contigs.fasta_gt1bp_dvfpred.txt"
     params:
         dvf_script = path_dvf_script
     threads:
@@ -204,11 +210,52 @@ rule deep_vir_finder:
         outdir=$(dirname {output.dvf_summary})        
         mkdir -p $outdir
         python {params.dvf_script} \
-            -i {input.fasta_files} \
+            -i {input.sequence_files} \
             -o $outdir \
             -c {threads}
 
         """
+
+rule convert_dvf_results_to_sequences:
+    input:
+        dvf_summary = "{main_dir}/1_1_dvf/combined_contigs.fasta_gt1bp_dvfpred.txt",
+        sequence_files = "{main_dir}/combined_contigs.fasta"
+    output:
+        viral_combined_dvf = "{main_dir}/1_1_dvf/final-viral-combined.fa"
+    params:
+        min_score_dvf=min_score_dvf,
+        max_pval_dvf=max_pval_dvf
+    run:
+        def read_fasta_file(fasta_file):
+            # https://www.biostars.org/p/710/#383479
+            with open(fasta_file, 'rb') as fasta_file_read:
+                faiter = (x[1] for x in groupby(fasta_file_read, lambda line: str(line, 'utf-8')[0] == ">"))
+                print(type(faiter))
+                print(fasta_file_read)
+                for header in faiter:
+                    seq_id = str(header.__next__(), 'utf-8').replace("\n", "")
+                    seq = "".join(str(s, 'utf-8').strip() for s in faiter.__next__()) + "\n"
+                    yield seq_id, seq
+
+        # Get IDs of viral contigs matching filters. 
+        viral_contig_ids = []
+        with open(input.dvf_summary, "r") as dvf_file:
+            dvf_summary_read = csv.reader(dvf_file, delimiter="\t")
+            next(dvf_summary_read) # Skip header
+            for row in dvf_summary_read:
+                seq_id = row[0]
+                score = float(row[2])
+                pvalue = float(row[3])
+                if score >= params.min_score_dvf and pvalue <= params.max_pval_dvf:
+                    viral_contig_ids.append(">" + seq_id)
+
+        # Write viral contigs to file.                 
+        with open(output.viral_combined_dvf, "a") as dvf_viral_contig_file:
+            for seq_id, seq in read_fasta_file(input.sequence_files):
+                # Iterate through the entire object so the gc can clean up after.                
+                if seq_id in viral_contig_ids:
+                    dvf_viral_contig_file.write(seq_id + "\n" + seq)
+        
 
 # ##############
 # ##  checkv  ##
@@ -219,10 +266,15 @@ rule checkv:
     Runs CheckV which constructs quality reports of the viral prediction step, that classified the contigs. 
     """
     input:
-        viral_combined = "{output_dir}/1_1_vs/final-viral-combined.fa",
+        viral_combined = "{main_dir}/{type}/final-viral-combined.fa",
         checkv_db = checkv_db
     output:
-        contig_quality_summary = "{output_dir}/1_2_checkv/quality_summary.tsv",
+        contig_quality_summary = "{main_dir}/1_2_checkv/{type}/quality_summary.tsv",
+        complete_genomes = "{main_dir}/1_2_checkv/{type}/complete_genomes.tsv",
+        genome_completeness = "{main_dir}/1_2_checkv/{type}/completeness.tsv",
+        checkv_viruses = "{main_dir}/1_2_checkv/{type}/viruses.fna",
+        checkv_proviruses = "{main_dir}/1_2_checkv/{type}/proviruses.fna",
+        checkv_contamination = "{main_dir}/1_2_checkv/{type}/contamination.tsv"
     threads:
         threads
     conda:
@@ -244,6 +296,8 @@ rule checkv:
             -d {input.checkv_db} 
 
         """
+
+        
 
 # Map using bwa
 # get contigs as reference and use the high quality paired-end reads to map to those reference reads. 

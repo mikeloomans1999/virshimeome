@@ -199,3 +199,23 @@ if type(config["circular"]) != str:
     circular=config["circular"]
 else:
     circular=config["circular"]
+
+# MIN SCORE DVF
+if config["min_score_dvf"] is None:
+    print('ERROR in ', config_path, ': the min_score_dvf variable is empty. Please, complete')
+    min_score_dvf=config["min_score_dvf"]
+elif type(config["min_score_dvf"]) != float :
+    print('ERROR in ', config_path, ': the min_score_dvf is not an float. Please, complete', config_path)
+    min_score_dvf=config["min_score_dvf"]
+else:
+    min_score_dvf=config["min_score_dvf"]
+
+# MAX PVALUE DVF
+if config["max_pval_dvf"] is None:
+    print('ERROR in ', config_path, ': the max_pval_dvf variable is empty. Please, complete')
+    max_pval_dvf=config["max_pval_dvf"]
+elif type(config["max_pval_dvf"]) != float :
+    print('ERROR in ', config_path, ': the max_pval_dvf is not an float. Please, complete', config_path)
+    max_pval_dvf=config["max_pval_dvf"]
+else:
+    max_pval_dvf=config["max_pval_dvf"]
