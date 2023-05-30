@@ -36,6 +36,7 @@ virshimeome_dir=config["virshimeome_dir"]
 hq_reads_dir=directory(config["hq_reads_dir"]) # This will be subdivided into numerous dirs and a things will have to be setup to iterate through them :(.
 main_contig_dir=config["contig_dir"]
 checkv_db=path.join(virshimeome_dir, "data", "checkv_db")
+checkm_db=path.join(virshimeome_dir, "data", "CheckM2_Database")
 script_dir=path.join(virshimeome_dir, "scripts")
 fasta_contig_file_paths = glob.glob(path.join(main_contig_dir, "**", "*.fasta"), recursive=True) # have an additional check in place for look for the fasta files here. 
 sample_ids = [prospective_dir.split("/")[-1] for prospective_dir in glob.glob(os.path.join(main_contig_dir, '*')) if os.path.isdir(prospective_dir)]
@@ -44,10 +45,7 @@ path_dvf_script = path.join(config["deep_vir_finder_dir"], "dvf.py")
 # Params #
 # Resources
 memory=config["memory"]
-# threads = config["threads"]
 threads = workflow.cores
-cores=config["cores"]
-
 # Contig selection (custom script & virsorter2)
 vs_db_dir = path.join(virshimeome_dir, "data", "vs_db")
 circular = config["circular"]
@@ -106,8 +104,13 @@ rule all:
         expand("{main_dir}/1_2_checkv/{type}/quality_summary.tsv", 
             main_dir=output_dir,
             type=["1_1_dvf", "1_1_vs"]
-            )
+            ),
 
+        # CheckM
+        # expand("{main_dir}/1_3_checkm/{type}/quality_summary.tsv", 
+        #     main_dir=output_dir,
+        #     type=["1_1_dvf", "1_1_vs"]
+        #     )
 ###########################
 ##  fasta concatenation  ##
 ###########################
@@ -169,7 +172,7 @@ rule vir_sorter:
     threads:
         threads
     conda:
-        path.join(virshimeome_dir, "envs", "virshimeome_base.yml")
+        path.join(virshimeome_dir, "envs", "virshimeome_base.yml") # vs2
     shell:
         """
         outdir=$(dirname {output.viral_combined})        
@@ -267,7 +270,6 @@ rule checkv:
     """
     input:
         viral_combined = "{main_dir}/{type}/final-viral-combined.fa",
-        checkv_db = checkv_db
     output:
         contig_quality_summary = "{main_dir}/1_2_checkv/{type}/quality_summary.tsv",
         complete_genomes = "{main_dir}/1_2_checkv/{type}/complete_genomes.tsv",
@@ -275,10 +277,12 @@ rule checkv:
         checkv_viruses = "{main_dir}/1_2_checkv/{type}/viruses.fna",
         checkv_proviruses = "{main_dir}/1_2_checkv/{type}/proviruses.fna",
         checkv_contamination = "{main_dir}/1_2_checkv/{type}/contamination.tsv"
+    params:
+        checkv_db = checkv_db
     threads:
-        threads
+        16
     conda:
-        path.join(virshimeome_dir, "envs", "virshimeome_base.yml")
+        path.join(virshimeome_dir, "envs", "virshimeome_base.yml") # checkv
     shell:
         """
         outdir=$(dirname {output.contig_quality_summary})        
@@ -287,17 +291,61 @@ rule checkv:
             {input.viral_combined} \
             $outdir \
             -t {threads} \
-            -d {input.checkv_db} 
+            -d {params.checkv_db} 
              
         checkv end_to_end \
             {input.viral_combined} \
             $outdir \
             -t {threads} \
-            -d {input.checkv_db} 
+            -d {params.checkv_db} 
 
         """
 
-        
+##############
+##  checkm  ##
+##############
+rule checkm:
+    input:
+        viral_combined = "{main_dir}/{type}/final-viral-combined.fa",
+    output:
+        contig_quality_summary = "{main_dir}/1_3_checkm/{type}/quality_summary.tsv",
+    params:
+        checkm_db = checkm_db
+    conda:
+        path.join(virshimeome_dir, "envs", "checkm2.yml")
+    threads: 
+        16
+    shell:
+        """
+        outdir=$(dirname {output.contig_quality_summary})        
+        mkdir -p $outdir
+
+        tmp=$(mktemp -d)
+        rm -rf $(dirname {output})
+        time ( \
+
+        echo checkm2 predict \
+                --quiet \
+                --database_path {params.checkm_db} \
+                -x fna \
+                --remove_intermediates \
+                --threads {threads} \
+                --input $(cat {input}) \
+                --tmpdir $tmp \
+                -o $(dirname $outdir) 
+
+        checkm2 predict \
+                --quiet \
+                --database_path {params.checkm_db} \
+                -x fna \
+                --remove_intermediates \
+                --threads {threads} \
+                --input $(cat {input}) \
+                --tmpdir $tmp \
+                -o $(dirname $outdir) 
+        rm -rf $tmp
+        """
+
 
 # Map using bwa
 # get contigs as reference and use the high quality paired-end reads to map to those reference reads. 

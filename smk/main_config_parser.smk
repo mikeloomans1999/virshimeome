@@ -51,12 +51,6 @@ elif path.exists(config['hq_reads_dir']) is False:
 else:
     hq_reads_dir = config['hq_reads_dir']
 
-# THREADS
-if config['threads'] is None:
-    print('ERROR in ', config_path, ': threads variable is empty. Please, complete ', config_path)
-elif type(config['threads']) != int:
-    print('ERROR in ', config_path, ': threads variable is not an integer. Please, complete ', config_path)
-
 # LOCAL DIR
 if config['local_dir'] is None:
     print('ERROR in ', config_path, ': local_dir variable is empty. Please, complete ', config_path)
@@ -152,16 +146,6 @@ elif type(config["memory"]) != int:
     memory=config["memory"]
 else:
     memory=config["memory"]
-
-# CORE ALLOCATION
-if config["cores"] is None:
-    print('ERROR in ', config_path, ': the cores variable is empty. Please, complete')
-    cores=config["cores"]
-elif type(config["cores"]) != int:
-    print('ERROR in ', config_path, ': the cores is not an interger. Please, complete', config_path)
-    cores=config["cores"]
-else:
-    cores=config["cores"]
 
 # RELATIVE ABUNDANCE MIN LENGTH READ ALIGNMENT
 if config["min_length_alignment_abundance"] is None:
