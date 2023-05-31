@@ -7,9 +7,9 @@ working_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_vir
 local_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome
 virshimeome_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome
 hq_reads_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/reads
-contig_dir: /projects/arumugam/scratch/mjq180/Diet3_for_Mike 
-# contig_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/MAGS
-output_dir: /projects/arumugam/scratch/mnc390/virome_testing/no_filter_virshimeome_pipeline_output
+# contig_dir: /projects/arumugam/scratch/mjq180/Diet3_for_Mike 
+contig_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/MAGS
+output_dir: /projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output
 deep_vir_finder_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome/DeepVirFinder
 # Resources 
 memory: 20 # In gigabytes
@@ -20,7 +20,7 @@ memory: 20 # In gigabytes
 # Contig selection (custom script & virsorter2)
 circular: _
 max_contig_length: 500000
-min_contig_length: 1500
+min_contig_length: 1000
 min_score_vir_recognition: 0.5
 
 # DVF

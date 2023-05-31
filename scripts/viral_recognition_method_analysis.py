@@ -9,18 +9,24 @@ from os import path
 from Bio import Phylo
 from Bio.Phylo.TreeConstruction import DistanceCalculator, DistanceTreeConstructor
 from Bio import SeqIO
-import matplotlib.pyplot as plt
 
 #################
 ##  variables  ##
 #################
 output_dir = "/projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/"
-checkv_dvf = path.join(output_dir, "1_2_checkv", "1_1_dvf")
-checkv_vs = path.join(output_dir, "1_2_checkv", "1_1_vs")
+checkv_dvf_dir = path.join(output_dir, "1_2_checkv", "1_1_dvf")
+checkv_vs_dir = path.join(output_dir, "1_2_checkv", "1_1_vs")
 
-combined_contigs_file = path.join(output_dir, "combined_contigs.fasta")
-checkv_quality_sum_dvf_file = path.join(checkv_dvf, "quality_summary.tsv")
-checkv_quality_sum_vs_file = path.join(checkv_vs, "quality_summary.tsv")
+combined_contig_file = path.join(output_dir, "combined_contigs.fasta")
+checkv_quality_sum_dvf_file = path.join(checkv_dvf_dir, "quality_summary.tsv")
+checkv_quality_sum_vs_file = path.join(checkv_vs_dir, "quality_summary.tsv")
+
+viral_fasta_file_dict = {
+    'checkv_dvf': path.join(checkv_dvf_dir, "viruses.fna"),
+    'checkv_vs':  path.join(checkv_vs_dir, "viruses.fna"),
+    'dvf_prediction': path.join(output_dir, "1_1_dvf", "final-viral.fa"),
+    'vs_prediction': path.join(output_dir, "1_1_vs", "final-viral.fa")
+}
 
 #################
 ##  load data  ##
@@ -65,18 +71,70 @@ def quality_by_contig_length(checkv_qs_df):
         
     return quality_by_contig_length_dict
 
+def create_phylogenetic_tree(name, viral_fasta_file):
+    # Read sequences from the FASTA file
+    sequences = SeqIO.parse(viral_fasta_file, 'clustal')
+
+    # Calculate distance matrix
+    calculator = DistanceCalculator('identity')
+    distance_matrix = calculator.get_distance(sequences)
+
+    # Construct the tree
+    constructor = DistanceTreeConstructor()
+    tree = constructor.nj(distance_matrix)
+
+    # Color the tree nodes based on groups
+    # for node in tree.get_terminals():
+    #     node_name = node.name
+        
+    #     # Determine the group of the node based on its name
+    #     # Adjust this logic according to your specific case
+    #     if 'Group A' in node_name:
+    #         node.color = group_colors['Group A']
+    #     elif 'Group B' in node_name:
+    #         node.color = group_colors['Group B']
+    #     elif 'Group C' in node_name:
+    #         node.color = group_colors['Group C']
+
+    # Plot the tree
+    fig, ax = plt.subplots(figsize=(8, 8))
+    Phylo.draw(tree, axes=ax, do_show=False)
+
+    # Add a legend for the group colors
+    legend_elements = [
+        plt.Line2D([0], [0], marker='o', color='w', markersize=10)
+        # for group, color in group_colors.items()
+    ]
+    ax.legend(handles=legend_elements, loc='upper right')
+
+    # Show the plot
+    plt.savefig(name + "_phylogenetic_tree.png")
+
+
 #####################
-##  Contig_length  ##
+##  Contig length  ##
 #####################
 contig_lengths_dvf = sorted(checkv_qs_df_dvf[:,1].astype(int).tolist()) # Get all contig lengths 
 contig_lengths_vs = sorted(checkv_qs_df_vs[:,1].astype(int).tolist())
 
 # Plot #
 contig_length_figure, contig_length_axes = plt.subplots()
-
 contig_length_axes.plot(contig_lengths_dvf, range(0, len(contig_lengths_dvf)))
-
 plt.savefig("contig_length_frequency.png")
+
+
+########################
+##  Percentage viral  ##
+########################
+len_combined_contig_sequences = 0
+combined_contig_sequences = SeqIO.parse(combined_contig_file, 'fasta')
+for record in  SeqIO.parse(combined_contig_file, 'fasta'):
+    len_combined_contig_sequences += 1
+print(len_combined_contig_sequences)
+print(len(contig_lengths_vs) / len_combined_contig_sequences)
+
+
+
 
 ##############################
 ##  Quality by contig type  ##
@@ -165,3 +223,6 @@ plt.savefig("contig_quality_boxplot.png")
 #########################
 ##  Phylogenetic tree  ##
 #########################
+
+# for data_input_name, fasta_file_path in msa_file_dict.items():
+#     create_phylogenetic_tree(data_input_name, fasta_file_path)

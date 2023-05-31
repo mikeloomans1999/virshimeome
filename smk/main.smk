@@ -45,7 +45,7 @@ path_dvf_script = path.join(config["deep_vir_finder_dir"], "dvf.py")
 # Params #
 # Resources
 memory=config["memory"]
-threads = workflow.cores
+available_threads = workflow.cores
 # Contig selection (custom script & virsorter2)
 vs_db_dir = path.join(virshimeome_dir, "data", "vs_db")
 circular = config["circular"]
@@ -73,7 +73,7 @@ percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
 
 # Global output directory, sample specific output directory. 
 output_dir = config["output_dir"]
-make_dirs(path.join(output_dir, step_dir) for step_dir in ["1_1_vs","1_2_checkv"])
+make_dirs(path.join(output_dir, step_dir) for step_dir in ["1_1_vs","1_2_checkv", "0_filtered_sequences"])
 
 #############
 ##  Rules  ##
@@ -81,7 +81,7 @@ make_dirs(path.join(output_dir, step_dir) for step_dir in ["1_1_vs","1_2_checkv"
 rule all:
     input:
         # Merge and filter fasta files across MAGs
-        expand("{main_dir}/combined_contigs.fasta", 
+        expand("{main_dir}/0_filtered_sequences/final-viral-combined.fa", 
             main_dir=output_dir, 
             ),
         
@@ -91,7 +91,7 @@ rule all:
             ),
 
         # Viral contig prediction (DVF)
-        expand("{main_dir}/1_1_dvf/combined_contigs.fasta_gt1bp_dvfpred.txt",
+        expand("{main_dir}/1_1_dvf/final-viral-combined.fa_gt1bp_dvfpred.txt",
             main_dir=output_dir
             ),
 
@@ -103,7 +103,7 @@ rule all:
         # CheckV 
         expand("{main_dir}/1_2_checkv/{type}/quality_summary.tsv", 
             main_dir=output_dir,
-            type=["1_1_dvf", "1_1_vs"]
+            type=["1_1_dvf", "1_1_vs", "0_filtered_sequences"]
             ),
 
         # CheckM
@@ -124,7 +124,7 @@ rule combine_sequence_files:
             os.path.join(main_contig_dir, "**", "*.fna")
             )
     output:
-        combined_contig_file = "{main_dir}/combined_contigs.fasta"
+        combined_contig_file = "{main_dir}/0_filtered_sequences/final-viral-combined.fa"
     threads:
         1 
     params:
@@ -152,7 +152,6 @@ rule combine_sequence_files:
                         description = seq_file.split(os.sep)[-2] # MAG or sampleID
                         combined_fasta_file.write(f"{seq_id}_MAG_{description}\n{seq}")
 
-
 #######################
 ##  vir recognition  ##
 #######################
@@ -161,7 +160,7 @@ rule vir_sorter:
     Runs Virsorter2 to predict viral contigs.
     """
     input:
-        sequence_files = "{main_dir}/combined_contigs.fasta"
+        sequence_files = "{main_dir}/0_filtered_sequences/final-viral-combined.fa"
     output:
         viral_combined = "{main_dir}/1_1_vs/final-viral-combined.fa",
         viral_score = "{main_dir}/1_1_vs/final-viral-score.tsv",
@@ -170,7 +169,7 @@ rule vir_sorter:
         min_score = min_score_vir_recognition,
         vs_db_dir = vs_db_dir
     threads:
-        threads
+        10
     conda:
         path.join(virshimeome_dir, "envs", "virshimeome_base.yml") # vs2
     shell:
@@ -199,13 +198,13 @@ rule deep_vir_finder:
     Runs DeepVirfinder to predict viral contigs.
     """
     input:
-        sequence_files = "{main_dir}/combined_contigs.fasta"
+        sequence_files = "{main_dir}/0_filtered_sequences/final-viral-combined.fa"
     output:
-        dvf_summary = "{main_dir}/1_1_dvf/combined_contigs.fasta_gt1bp_dvfpred.txt"
+        dvf_summary = "{main_dir}/1_1_dvf/final-viral-combined.fa_gt1bp_dvfpred.txt"
     params:
         dvf_script = path_dvf_script
     threads:
-        threads
+        10
     conda:
         path.join(virshimeome_dir, "envs", "deepvirfinder.yml")
     shell:
@@ -221,8 +220,8 @@ rule deep_vir_finder:
 
 rule convert_dvf_results_to_sequences:
     input:
-        dvf_summary = "{main_dir}/1_1_dvf/combined_contigs.fasta_gt1bp_dvfpred.txt",
-        sequence_files = "{main_dir}/combined_contigs.fasta"
+        dvf_summary = "{main_dir}/1_1_dvf/final-viral-combined.fa_gt1bp_dvfpred.txt",
+        sequence_files = "{main_dir}/0_filtered_sequences/final-viral-combined.fa"
     output:
         viral_combined_dvf = "{main_dir}/1_1_dvf/final-viral-combined.fa"
     params:
@@ -280,7 +279,7 @@ rule checkv:
     params:
         checkv_db = checkv_db
     threads:
-        16
+        10
     conda:
         path.join(virshimeome_dir, "envs", "virshimeome_base.yml") # checkv
     shell:
@@ -301,12 +300,12 @@ rule checkv:
 
         """
 
-##############
-##  checkm  ##
-##############
+###############
+##  checkm2  ##
+###############
 rule checkm:
     input:
-        viral_combined = "{main_dir}/{type}/final-viral-combined.fa",
+        viral_combined = "{main_dir}/{type}/final-viral-combined.fa"
     output:
         contig_quality_summary = "{main_dir}/1_3_checkm/{type}/quality_summary.tsv",
     params:
@@ -314,7 +313,7 @@ rule checkm:
     conda:
         path.join(virshimeome_dir, "envs", "checkm2.yml")
     threads: 
-        16
+        10
     shell:
         """
         outdir=$(dirname {output.contig_quality_summary})        
