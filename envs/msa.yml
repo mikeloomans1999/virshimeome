@@ -1,0 +1,11 @@
+name: msa
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - _openmp_mutex=5.1=1_gnu
+  - libgcc-ng=11.2.0=h1234567_1
+  - libgomp=11.2.0=h1234567_1
+  - mafft=7.505=hec16e2b_0
+prefix: /home/mnc390/anaconda3/envs/msa

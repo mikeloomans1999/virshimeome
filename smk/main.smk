@@ -366,9 +366,11 @@ rule multiple_sequence_alignemnt:
     input:
         viral_combined = "{main_dir}/{type}/final-viral-combined.fa"
     output:
-        msa_file = "{main_dir}/4_msa/{type}/sequence_alignmments.malign" # In FASTA format. 
+        # In FASTA format. 
+        msa_file = "{main_dir}/4_msa/{type}/sequence_alignmments.fasta"
     params:
-        retree = 1
+        retree = 1,
+        max_iterate = 0 
     threads:
         20
     conda:
@@ -380,12 +382,14 @@ rule multiple_sequence_alignemnt:
         
         echo mafft \
             --retree {params.retree} \
+            --maxiterate {params.max_iterate} \
             --thread {threads} \
             {input.viral_combined} \
             > {output.msa_file}
 
         mafft \
             --retree {params.retree} \
+            --maxiterate {params.max_iterate} \
             --thread {threads} \
             {input.viral_combined} \
             > {output.msa_file}
