@@ -41,11 +41,13 @@ script_dir=path.join(virshimeome_dir, "scripts")
 fasta_contig_file_paths = glob.glob(path.join(main_contig_dir, "**", "*.fasta"), recursive=True) # have an additional check in place for look for the fasta files here. 
 sample_ids = [prospective_dir.split("/")[-1] for prospective_dir in glob.glob(os.path.join(main_contig_dir, '*')) if os.path.isdir(prospective_dir)]
 path_dvf_script = path.join(config["deep_vir_finder_dir"], "dvf.py")
+visualization_script = path.join(virshimeome_dir, "scripts", "virshimeome_pipeline_visualization.py")
 
 # Params #
 # Resources
 memory=config["memory"]
 available_threads = workflow.cores
+
 # Contig selection (custom script & virsorter2)
 vs_db_dir = path.join(virshimeome_dir, "data", "vs_db")
 circular = config["circular"]
@@ -73,7 +75,9 @@ percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
 
 # Global output directory, sample specific output directory. 
 output_dir = config["output_dir"]
-make_dirs(path.join(output_dir, step_dir) for step_dir in ["1_1_vs","1_2_checkv", "0_filtered_sequences"])
+subdirs = ["1_1_vs", "1_1_dvf", "0_filtered_sequences"]
+make_dirs(path.join(output_dir, step_dir) for step_dir in ["1_1_vs", "1_2_checkv", "0_filtered_sequences", "data_visualization"])
+graph_filenames = ["circular_quality_absolute_bar.png", "contig_length_frequency.png", "circular_quality_percentage_bar.png", "contig_quality_boxplot.png"]
 
 #############
 ##  Rules  ##
@@ -103,14 +107,27 @@ rule all:
         # CheckV 
         expand("{main_dir}/1_2_checkv/{type}/quality_summary.tsv", 
             main_dir=output_dir,
-            type=["1_1_dvf", "1_1_vs", "0_filtered_sequences"]
+            type=subdirs
             ),
 
         # CheckM
         # expand("{main_dir}/1_3_checkm/{type}/quality_summary.tsv", 
         #     main_dir=output_dir,
-        #     type=["1_1_dvf", "1_1_vs"]
+        #     type=subdirs
+        #     ),
+
+        # Multiple sequence alignemnt
+        expand("{main_dir}/4_msa/{type}/sequence_alignmments.malign", 
+            main_dir = output_dir,
+            type = subdirs,
+            ),
+
+        # Visualization
+        # expand("{main_dir}/data_visualization/{files}.tsv", 
+        #     main_dir=output_dir,
+        #     files = graph_filenames
         #     )
+        
 ###########################
 ##  fasta concatenation  ##
 ###########################
@@ -324,25 +341,55 @@ rule checkm:
         time ( \
 
         echo checkm2 predict \
-                --quiet \
-                --database_path {params.checkm_db} \
-                -x fna \
-                --remove_intermediates \
-                --threads {threads} \
-                --input $(cat {input}) \
-                --tmpdir $tmp \
-                -o $(dirname $outdir) 
+            --quiet \
+            --database_path {params.checkm_db} \
+            -x fna \
+            --remove_intermediates \
+            --threads {threads} \
+            --input $(cat {input}) \
+            --tmpdir $tmp \
+            -o $(dirname $outdir) 
 
         checkm2 predict \
-                --quiet \
-                --database_path {params.checkm_db} \
-                -x fna \
-                --remove_intermediates \
-                --threads {threads} \
-                --input $(cat {input}) \
-                --tmpdir $tmp \
-                -o $(dirname $outdir) 
+            --quiet \
+            --database_path {params.checkm_db} \
+            -x fna \
+            --remove_intermediates \
+            --threads {threads} \
+            --input $(cat {input}) \
+            --tmpdir $tmp \
+            -o $(dirname $outdir) 
         rm -rf $tmp
+        """
+
+rule multiple_sequence_alignemnt:
+    input:
+        viral_combined = "{main_dir}/{type}/final-viral-combined.fa"
+    output:
+        msa_file = "{main_dir}/4_msa/{type}/sequence_alignmments.malign" # In FASTA format. 
+    params:
+        retree = 1
+    threads:
+        20
+    conda:
+        path.join(virshimeome_dir, "envs", "msa.yml")
+    shell:
+        """
+        outdir=$(dirname {output.msa_file})
+        mkdir -p $outdir
+        
+        echo mafft \
+            --retree {params.retree} \
+            --thread {threads} \
+            {input.viral_combined} \
+            > {output.msa_file}
+
+        mafft \
+            --retree {params.retree} \
+            --thread {threads} \
+            {input.viral_combined} \
+            > {output.msa_file}
+
         """
 
 
@@ -448,6 +495,31 @@ rule checkm:
                      
 #         """
 
-# # Run R code to make pretty graphs etc.. in another conda environment. 
+rule data_visualization:
+    input:
+        checkv_quality_summary = expand("{main_dir}/1_2_checkv/{type}/quality_summary.tsv",
+            main_dir = output_dir,
+            type=subdirs
+            ),
+        
+        checkv_completeness_gneomes = expand("{main_dir}/1_2_checkv/{type}/complete_genomes.tsv",
+            main_dir = output_dir,
+            type=subdirs
+            )
+    output:
+        outputfiles = "{main_dir}/data_visualization/{files}.tsv"
+    params:
+        visualizaton_script = visualization_script,
+        virshimeome_output_dir = output_dir
+    shell:
+        """
+        outdir=$(dirname {output.outputfiles})        
+        mkdir -p $outdir
+        python3 {params.visualizaton_script} \
+            -i {params.virshimeome_output_dir} \
+            -o $outdir
+
+        """
+
 
 # # rule taxonomic_characterization:

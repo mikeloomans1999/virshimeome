@@ -7,10 +7,8 @@ working_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_vir
 local_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome
 virshimeome_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome
 hq_reads_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/reads
-# contig_dir: /projects/arumugam/scratch/mjq180/Diet3_for_Mike 
-# contig_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/MAGS
-# contig_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/mag_subset/
-output_dir: /projects/arumugam/scratch/mnc390/virome_testing/no_filter_virshimeome_pipeline_output
+contig_dir: /projects/arumugam/scratch/mjq180/Diet3_for_Mike 
+output_dir: /projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output
 deep_vir_finder_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome/DeepVirFinder
 # Resources 
 memory: 20 # In gigabytes
@@ -19,7 +17,7 @@ memory: 20 # In gigabytes
 ##  Tool settings  ##
 #####################
 # Contig selection (custom script & virsorter2)
-circular: _
+circular: circular
 max_contig_length: 500000
 min_contig_length: 500
 min_score_vir_recognition: 0.5
@@ -36,3 +34,4 @@ algorithm_bwa: mem
 min_length_alignment_abundance: 80
 percentage_identity_abundance: 95 # Percentage not decimal
 percentage_read_aligned_abundance: 80 # Percentage not decimal
+
