@@ -13,19 +13,21 @@ from Bio import SeqIO
 #################
 ##  variables  ##
 #################
-output_dir = "/projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/"
-checkv_dvf_dir = path.join(output_dir, "1_2_checkv", "1_1_dvf")
-checkv_vs_dir = path.join(output_dir, "1_2_checkv", "1_1_vs")
+visualization_output_dir = "/projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/data_visualization/"
 
-combined_contig_file = path.join(output_dir, "combined_contigs.fasta")
+pipeline_output_dir = "/projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/"
+checkv_dvf_dir = path.join(pipeline_output_dir, "1_2_checkv", "1_1_dvf")
+checkv_vs_dir = path.join(pipeline_output_dir, "1_2_checkv", "1_1_vs")
+
+combined_contig_file = path.join(pipeline_output_dir, "combined_contigs.fasta")
 checkv_quality_sum_dvf_file = path.join(checkv_dvf_dir, "quality_summary.tsv")
 checkv_quality_sum_vs_file = path.join(checkv_vs_dir, "quality_summary.tsv")
 
 viral_fasta_file_dict = {
     'checkv_dvf': path.join(checkv_dvf_dir, "viruses.fna"),
     'checkv_vs':  path.join(checkv_vs_dir, "viruses.fna"),
-    'dvf_prediction': path.join(output_dir, "1_1_dvf", "final-viral.fa"),
-    'vs_prediction': path.join(output_dir, "1_1_vs", "final-viral.fa")
+    'dvf_prediction': path.join(pipeline_output_dir, "1_1_dvf", "final-viral.fa"),
+    'vs_prediction': path.join(pipeline_output_dir, "1_1_vs", "final-viral.fa")
 }
 
 #################

@@ -76,7 +76,8 @@ percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
 # Global output directory, sample specific output directory. 
 output_dir = config["output_dir"]
 subdirs = ["1_1_vs", "1_1_dvf", "0_filtered_sequences"]
-make_dirs(path.join(output_dir, step_dir) for step_dir in ["1_1_vs", "1_2_checkv", "0_filtered_sequences", "data_visualization"])
+all_dirs = subdirs + ["2_checkv", "4_alignment", "3_checkm", "5_1_contig_lengths","5_2_viral_otus", "6_0_gene_calls", "6_1_all_against_all_blastp", "7_0_clustering", "data_visualization"]
+make_dirs(path.join(output_dir, step_dir) for step_dir in all_dirs)
 graph_filenames = ["circular_quality_absolute_bar.png", "contig_length_frequency.png", "circular_quality_percentage_bar.png", "contig_quality_boxplot.png"]
 
 #############
@@ -105,23 +106,44 @@ rule all:
             ),
         
         # CheckV 
-        expand("{main_dir}/1_2_checkv/{type}/quality_summary.tsv", 
+        expand("{main_dir}/2_checkv/{type}/quality_summary.tsv", 
             main_dir=output_dir,
             type=subdirs
             ),
 
         # CheckM
-        # expand("{main_dir}/1_3_checkm/{type}/quality_summary.tsv", 
+        # expand("{main_dir}/3_checkm/{type}/quality_summary.tsv", 
         #     main_dir=output_dir,
         #     type=subdirs
         #     ),
 
-        # Multiple sequence alignemnt
-        expand("{main_dir}/4_msa/{type}/sequence_alignmments.malign", 
-            main_dir = output_dir,
-            type = subdirs,
+        # Alignment
+        expand("{main_dir}/4_alignment/{type}/contigs_aligned.blat", 
+            main_dir=output_dir,
+            type="1_1_dvf"
+            ),
+        
+        # vOTU clutsering
+        expand("{main_dir}/5_1_contig_lengths/{type}/contigs.all.lengths",
+            main_dir=output_dir,
+            type="1_1_dvf"
+            ),
+        expand("{main_dir}/5_2_viral_otus/{type}/vOTUs.tsv",
+            main_dir=output_dir,
+            type="1_1_dvf"
             ),
 
+        # gene calling and comparison
+        expand("{main_dir}/6_0_gene_calls/{type}/vOTUs.gbk",
+            main_dir = output_dir,
+            type="1_1_dvf"
+            ),
+
+        expand("{main_dir}/6_1_all_against_all_blastp/{type}/vOTUs.fasta36",
+            main_dir = output_dir,
+            type="1_1_dvf"
+            )
+            
         # Visualization
         # expand("{main_dir}/data_visualization/{files}.tsv", 
         #     main_dir=output_dir,
@@ -287,12 +309,12 @@ rule checkv:
     input:
         viral_combined = "{main_dir}/{type}/final-viral-combined.fa",
     output:
-        contig_quality_summary = "{main_dir}/1_2_checkv/{type}/quality_summary.tsv",
-        complete_genomes = "{main_dir}/1_2_checkv/{type}/complete_genomes.tsv",
-        genome_completeness = "{main_dir}/1_2_checkv/{type}/completeness.tsv",
-        checkv_viruses = "{main_dir}/1_2_checkv/{type}/viruses.fna",
-        checkv_proviruses = "{main_dir}/1_2_checkv/{type}/proviruses.fna",
-        checkv_contamination = "{main_dir}/1_2_checkv/{type}/contamination.tsv"
+        contig_quality_summary = "{main_dir}/2_checkv/{type}/quality_summary.tsv",
+        complete_genomes = "{main_dir}/2_checkv/{type}/complete_genomes.tsv",
+        genome_completeness = "{main_dir}/2_checkv/{type}/completeness.tsv",
+        checkv_viruses = "{main_dir}/2_checkv/{type}/viruses.fna",
+        checkv_proviruses = "{main_dir}/2_checkv/{type}/proviruses.fna",
+        checkv_contamination = "{main_dir}/2_checkv/{type}/contamination.tsv"
     params:
         checkv_db = checkv_db
     threads:
@@ -324,7 +346,7 @@ rule checkm:
     input:
         viral_combined = "{main_dir}/{type}/final-viral-combined.fa"
     output:
-        contig_quality_summary = "{main_dir}/1_3_checkm/{type}/quality_summary.tsv",
+        contig_quality_summary = "{main_dir}/3_checkm/{type}/quality_summary.tsv",
     params:
         checkm_db = checkm_db
     conda:
@@ -362,39 +384,163 @@ rule checkm:
         rm -rf $tmp
         """
 
-rule multiple_sequence_alignemnt:
+
+#################
+##  alignment  ##
+#################
+rule alignment:
     input:
-        viral_combined = "{main_dir}/{type}/final-viral-combined.fa"
+        contigs = "{main_dir}/{type}/final-viral-combined.fa"
     output:
-        # In FASTA format. 
-        msa_file = "{main_dir}/4_msa/{type}/sequence_alignmments.fasta"
-    params:
-        retree = 1,
-        max_iterate = 0 
+        aligned_contigs = "{main_dir}/4_alignment/{type}/contigs_aligned.blat"
     threads:
-        20
+        1 
     conda:
-        path.join(virshimeome_dir, "envs", "msa.yml")
+        path.join(virshimeome_dir, "envs", "virshimeome_base.yml") # BLAT
     shell:
         """
-        outdir=$(dirname {output.msa_file})
-        mkdir -p $outdir
-        
-        echo mafft \
-            --retree {params.retree} \
-            --maxiterate {params.max_iterate} \
-            --thread {threads} \
-            {input.viral_combined} \
-            > {output.msa_file}
-
-        mafft \
-            --retree {params.retree} \
-            --maxiterate {params.max_iterate} \
-            --thread {threads} \
-            {input.viral_combined} \
-            > {output.msa_file}
-
+        blat \
+            {input.contigs} \
+            {input.contigs} \
+            {output.aligned_contigs} \
+            -out=blast8
         """
+
+#######################
+##  vOTU clustering  ##
+#######################
+rule contig_lengths:
+    input:
+        contigs = "{main_dir}/{type}/final-viral-combined.fa",
+        aligned_contigs = "{main_dir}/4_alignment/{type}/contigs_aligned.blat"
+    output:
+        contig_lengths = "{main_dir}/5_1_contig_lengths/{type}/contigs.all.lengths"
+    params:
+        f2s_script = path.join(script_dir, "f2s"),
+        seqlengths_script =path.join(script_dir, "seqlengths"),
+        joincol_script = path.join(script_dir, "joincol"),
+        hashsums_script = path.join(script_dir, "hashsums")
+    threads:
+        1
+    shell:
+        """
+        cat {input.contigs} \
+            | perl {params.f2s_script} \
+            | perl {params.seqlengths_script} \
+            | perl {params.joincol_script} <(cat {input.aligned_contigs} \
+            | awk '{{if ($1 == $2) print $1 "\t" $12}}' \
+            | perl {params.hashsums_script} \
+            | tail -n +2) > {output.contig_lengths}
+        """
+
+rule viral_otu_clustering:
+    input:
+        contigs = "{main_dir}/{type}/final-viral-combined.fa",
+        aligned_contigs = "{main_dir}/4_alignment/{type}/contigs_aligned.blat",
+        contig_lengths = "{main_dir}/5_1_contig_lengths/{type}/contigs.all.lengths"
+    output:
+        viral_otus_table = "{main_dir}/5_2_viral_otus/{type}/vOTUs.tsv",
+    params:
+        joincol_script = path.join(script_dir, "joincol"),
+        hashsums_script = path.join(script_dir, "hashsums")
+    threads:
+        1
+    shell:
+        """
+        cut -f1,2,12 {input.aligned_contigs} \
+            | perl {params.hashsums_script} \
+            | tail -n +2 \
+            | perl {params.joincol_script} {input.contig_lengths} 2 \
+            | sort -k4,4nr -k1,1 \
+            | awk '{{if ($3/$NF >= .90) print $1 "\t" $2}}' \
+            | perl -lane 'unless (exists($clusters{{$F[1]}})) {{$clusters{{$F[1]}} = $F[0]; print "$F[1]\t$F[0]"}}' \
+            > {output.viral_otus_table}
+        """
+
+rule viral_otu_cluster_sequences:
+    input:
+        contigs = "{main_dir}/{type}/final-viral-combined.fa",
+        viral_otus_table = "{main_dir}/5_2_viral_otus/{type}/vOTUs.tsv",
+    output:
+        viral_otus_fna = "{main_dir}/5_2_viral_otus/{type}/vOTUs.fna" # Check for FASTA formatting. 
+    params:
+        f2s_script = path.join(script_dir, "f2s"),
+        joincol_script = path.join(script_dir, "joincol")
+    threads:
+        1
+    shell:
+        """
+        cat {input.contigs} \
+            | perl {params.f2s_script} \
+            | perl {params.joincol_script} <(cut -f2 {input.viral_otus_table}) \
+            | awk '$NF == 1' \
+            | awk -F'\t' '{printf "%s\n%s\n", $1, $2}' > s2f \
+            && mv s2f {output.viral_otus_fna}
+        """
+
+rule gene_calling_protein_comparison:
+    input:
+        viral_otus_fna = "{main_dir}/5_2_viral_otus/{type}/vOTUs.fna"
+    output:
+        gene_calls = "{main_dir}/6_0_gene_calls/{type}/vOTUs.gbk",
+        protein_translations = "{main_dir}/6_0_gene_calls/{type}/vOTUs.faa"
+    conda:
+        path.join(virshimeome_dir, "envs", "gene_calling.yml") # prodigal
+    shell:
+        """
+        cat  {input.viral_otus_fna} | prodigal -a {output.protein_translations} -p meta > {output.gene_calls}
+        """
+
+
+rule all_against_all_fasta36:
+    input:
+        protein_translations = "{main_dir}/6_0_gene_calls/{type}/vOTUs.faa"
+    output:
+        all_against_all_fasta36 = "{main_dir}/6_1_all_against_all_blastp/{type}/vOTUs.fasta36"
+    params:
+        fasta_36_bin = path.join(virshimeome_dir,"FASTA", "bin", "fasta36")
+    threads:
+        12
+    shell:
+        """
+        {params.fasta_36_bin} \
+            -m {threads} 
+            {input.protein_translations} \
+            {input.protein_translations} \
+            > {output.all_against_all_fasta36} 
+        """
+
+rule markov_chain_clustering:
+    input:
+        protein_translations = "{main_dir}/6_0_gene_calls/{type}/vOTUs.faa",
+        all_against_all_fasta36 = "{main_dir}/6_1_all_against_all_blastp/{type}/vOTUs.fasta36"
+    output:
+        v_otu_lengths =  "{main_dir}/7_0_clustering/{type}/vOTUs.faa.lengths",
+        v_otu_viral_orthologous_groups = "{main_dir}/7_0_clustering/{type}/vOTUs.faa"
+    params:
+        f2s_script = path.join(script_dir, "f2s"),
+        seqlengths_script =path.join(script_dir, "seqlengths"),
+        joincol_script = path.join(script_dir, "joincol"),
+        hashsums_script = path.join(script_dir, "hashsums"),
+        mcl_script = path.join(script_dir, "mcl")
+    shell:
+        """
+        cat {input.protein_translations} \
+            | perl {params.f2s_script} \
+            | perl {params.seqlengths_script} \
+            > {output.v_otu_lengths}
+
+        cat {input.all_against_all_fasta36} \
+            | perl {params.joincol_script} {output.v_otu_lengths} \
+            | perl {params.joincol_script} {output.v_otu_lengths} 2 \
+            | awk '{{print $1 "\t" $2 "\t" $11 "\t" $13/$14 "\t" ($8-$7)/(2*$13)+($10-$9)/(2*$14) "\t" ($7+$8-$9-$10)/($13+$14)}}' \
+            | awk '{{if ($3 <= 0.05) print}}' \
+            | awk '{{if ($5 >= 0.4) print}}' \
+            | awk '{{if (sqrt(($4-1)^2) - (sqrt(sqrt($5))-.8) + sqrt($6^2) <= 0.1) print $1 "\t" $2}}' \
+            | mcl - -o - --abc | awk '{{j++; for (i = 1; i <= NF; i++) {{print $i "\t" j}}}}' \
+            > {output.v_otu_viral_orthologous_groups}
+        """
+
 
 
 # Map using bwa
@@ -501,12 +647,12 @@ rule multiple_sequence_alignemnt:
 
 rule data_visualization:
     input:
-        checkv_quality_summary = expand("{main_dir}/1_2_checkv/{type}/quality_summary.tsv",
+        checkv_quality_summary = expand("{main_dir}/2_checkv/{type}/quality_summary.tsv",
             main_dir = output_dir,
             type=subdirs
             ),
         
-        checkv_completeness_gneomes = expand("{main_dir}/1_2_checkv/{type}/complete_genomes.tsv",
+        checkv_completeness_gneomes = expand("{main_dir}/2_checkv/{type}/complete_genomes.tsv",
             main_dir = output_dir,
             type=subdirs
             )
@@ -525,5 +671,3 @@ rule data_visualization:
 
         """
 
-
-# # rule taxonomic_characterization:

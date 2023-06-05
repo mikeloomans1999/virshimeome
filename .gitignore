@@ -167,3 +167,6 @@ bwa*
 data/
 conda_env/
 DeepVirFinder/
+FASTA/
+installmcl/
+VFCs/
