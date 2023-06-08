@@ -76,7 +76,7 @@ percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
 # Global output directory, sample specific output directory. 
 output_dir = config["output_dir"]
 subdirs = ["1_1_vs", "1_1_dvf", "0_filtered_sequences"]
-all_dirs = subdirs + ["2_checkv", "4_alignment", "3_checkm", "5_1_contig_lengths","5_2_viral_otus", "6_0_gene_calls", "6_1_all_against_all_blastp", "7_0_clustering", "data_visualization"]
+all_dirs = subdirs + ["2_checkv", "4_alignment", "3_checkm", "5_1_contig_lengths","5_2_viral_otus", "6_0_gene_calls", "6_1_all_against_all_search", "7_0_clustering", "data_visualization"]
 make_dirs(path.join(output_dir, step_dir) for step_dir in all_dirs)
 graph_filenames = ["circular_quality_absolute_bar.png", "contig_length_frequency.png", "circular_quality_percentage_bar.png", "contig_quality_boxplot.png"]
 
@@ -128,7 +128,7 @@ rule all:
             main_dir=output_dir,
             type="1_1_dvf"
             ),
-        expand("{main_dir}/5_2_viral_otus/{type}/vOTUs.tsv",
+        expand("{main_dir}/5_2_viral_otus/{type}/vOTUs.fna",
             main_dir=output_dir,
             type="1_1_dvf"
             ),
@@ -139,11 +139,17 @@ rule all:
             type="1_1_dvf"
             ),
 
-        expand("{main_dir}/6_1_all_against_all_blastp/{type}/vOTUs.fasta36",
+        expand("{main_dir}/6_1_all_against_all_search/{type}/vOTUs.fasta36",
+            main_dir = output_dir,
+            type="1_1_dvf"
+            ),
+
+        # Markov chain clustering
+        expand("{main_dir}/7_0_clustering/{type}/vOTUs_VOGs.tsv",
             main_dir = output_dir,
             type="1_1_dvf"
             )
-            
+        
         # Visualization
         # expand("{main_dir}/data_visualization/{files}.tsv", 
         #     main_dir=output_dir,
@@ -465,7 +471,8 @@ rule viral_otu_cluster_sequences:
         viral_otus_fna = "{main_dir}/5_2_viral_otus/{type}/vOTUs.fna" # Check for FASTA formatting. 
     params:
         f2s_script = path.join(script_dir, "f2s"),
-        joincol_script = path.join(script_dir, "joincol")
+        joincol_script = path.join(script_dir, "joincol"),
+        fasta_fix_script = path.join(script_dir, "fasta_fix_script.py")
     threads:
         1
     shell:
@@ -474,8 +481,12 @@ rule viral_otu_cluster_sequences:
             | perl {params.f2s_script} \
             | perl {params.joincol_script} <(cut -f2 {input.viral_otus_table}) \
             | awk '$NF == 1' \
-            | awk -F'\t' '{printf "%s\n%s\n", $1, $2}' > s2f \
-            && mv s2f {output.viral_otus_fna}
+            | cut -f1,2 > s2f \
+            > {output.viral_otus_fna}_temp
+        
+        cp {output.viral_otus_fna}_temp {output.viral_otus_fna}
+
+        python3 {params.fasta_fix_script} --input {output.viral_otus_fna}_temp --output {output.viral_otus_fna}
         """
 
 rule gene_calling_protein_comparison:
@@ -496,27 +507,30 @@ rule all_against_all_fasta36:
     input:
         protein_translations = "{main_dir}/6_0_gene_calls/{type}/vOTUs.faa"
     output:
-        all_against_all_fasta36 = "{main_dir}/6_1_all_against_all_blastp/{type}/vOTUs.fasta36"
+        all_against_all_search = "{main_dir}/6_1_all_against_all_search/{type}/vOTUs.fasta36"
     params:
         fasta_36_bin = path.join(virshimeome_dir,"FASTA", "bin", "fasta36")
     threads:
         12
     shell:
         """
+        outdir=$(dirname {output.all_against_all_search})        
+        mkdir -p $outdir
+
         {params.fasta_36_bin} \
-            -m {threads} 
+            -m {threads}  \
             {input.protein_translations} \
             {input.protein_translations} \
-            > {output.all_against_all_fasta36} 
+            > {output.all_against_all_search} 
         """
 
 rule markov_chain_clustering:
     input:
         protein_translations = "{main_dir}/6_0_gene_calls/{type}/vOTUs.faa",
-        all_against_all_fasta36 = "{main_dir}/6_1_all_against_all_blastp/{type}/vOTUs.fasta36"
+        all_against_all_search = "{main_dir}/6_1_all_against_all_search/{type}/vOTUs.fasta36"
     output:
         v_otu_lengths =  "{main_dir}/7_0_clustering/{type}/vOTUs.faa.lengths",
-        v_otu_viral_orthologous_groups = "{main_dir}/7_0_clustering/{type}/vOTUs.faa"
+        v_otu_viral_orthologous_groups = "{main_dir}/7_0_clustering/{type}/vOTUs_VOGs.tsv"
     params:
         f2s_script = path.join(script_dir, "f2s"),
         seqlengths_script =path.join(script_dir, "seqlengths"),
@@ -525,12 +539,15 @@ rule markov_chain_clustering:
         mcl_script = path.join(script_dir, "mcl")
     shell:
         """
+        outdir=$(dirname {output.v_otu_viral_orthologous_groups})
+        mkdir -p $outdir
+
         cat {input.protein_translations} \
             | perl {params.f2s_script} \
             | perl {params.seqlengths_script} \
             > {output.v_otu_lengths}
 
-        cat {input.all_against_all_fasta36} \
+        cat {input.all_against_all_search} \
             | perl {params.joincol_script} {output.v_otu_lengths} \
             | perl {params.joincol_script} {output.v_otu_lengths} 2 \
             | awk '{{print $1 "\t" $2 "\t" $11 "\t" $13/$14 "\t" ($8-$7)/(2*$13)+($10-$9)/(2*$14) "\t" ($7+$8-$9-$10)/($13+$14)}}' \
@@ -542,6 +559,26 @@ rule markov_chain_clustering:
         """
 
 
+rule aggregate_pårotein_similarity:
+    input:
+        all_against_all_search = "{main_dir}/6_1_all_against_all_search/{type}/vOTUs.fasta36"
+    output:
+        v_otu_distance_matrix = "{main_dir}/8_0_distances/{type}/vOTUs.mat"
+    params:
+        hashsums_script = path.join(script_dir, "hashsums"),
+        tree_bray_script = path.join(script_dir, "tree_bray"),
+    shell:
+        """
+            awk '{if ($11 <= 0.05) print $1 "\t" $2 "\t" $12}' {input.all_against_all_search} \
+            | rev \
+            | sed 's/\t[[:digit:]]\+_/\t/' \
+            | rev \
+            | sed 's/_[[:digit:]]\+\t/\t/' \
+            | sort \
+            | perl {params.hashsums_script} \
+            | perl {params.tree_bray_script} \
+            > {output.v_otu_distance_matrix}
+        """
 
 # Map using bwa
 # get contigs as reference and use the high quality paired-end reads to map to those reference reads. 
