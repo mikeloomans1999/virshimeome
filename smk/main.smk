@@ -41,7 +41,6 @@ script_dir=path.join(virshimeome_dir, "scripts")
 fasta_contig_file_paths = glob.glob(path.join(main_contig_dir, "**", "*.fasta"), recursive=True) # have an additional check in place for look for the fasta files here. 
 sample_ids = [prospective_dir.split("/")[-1] for prospective_dir in glob.glob(os.path.join(main_contig_dir, '*')) if os.path.isdir(prospective_dir)]
 path_dvf_script = path.join(config["deep_vir_finder_dir"], "dvf.py")
-visualization_script = path.join(virshimeome_dir, "scripts", "virshimeome_pipeline_visualization.py")
 
 # Params #
 # Resources
@@ -49,7 +48,7 @@ memory=config["memory"]
 available_threads = workflow.cores
 
 # Contig selection (custom script & virsorter2)
-vs_db_dir = path.join(virshimeome_dir, "data", "vs_db")
+vs_db_dir = path.join(virshimeome_dir, "data", "vs2_db")
 circular = config["circular"]
 min_contig_length = config["min_contig_length"]
 max_contig_length = config["max_contig_length"]
@@ -76,7 +75,7 @@ percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
 # Global output directory, sample specific output directory. 
 output_dir = config["output_dir"]
 subdirs = ["1_1_vs", "1_1_dvf", "0_filtered_sequences"]
-all_dirs = subdirs + ["2_checkv", "4_alignment", "3_checkm", "5_1_contig_lengths","5_2_viral_otus", "6_0_gene_calls", "6_1_all_against_all_search", "7_0_clustering", "data_visualization"]
+all_dirs = subdirs + ["2_checkv", "4_alignment", "3_checkm", "5_1_contig_lengths","5_2_viral_otus", "6_0_gene_calls", "6_1_all_against_all_search", "7_0_clustering", "8_0_identification", "9_0_distance", "data_visualization"]
 make_dirs(path.join(output_dir, step_dir) for step_dir in all_dirs)
 graph_filenames = ["circular_quality_absolute_bar.png", "contig_length_frequency.png", "circular_quality_percentage_bar.png", "contig_quality_boxplot.png"]
 
@@ -144,12 +143,43 @@ rule all:
             type="1_1_dvf"
             ),
 
-        # Markov chain clustering
-        expand("{main_dir}/7_0_clustering/{type}/vOTUs_VOGs.tsv",
-            main_dir = output_dir,
+        # # Markov chain clustering
+        # expand("{main_dir}/7_0_clustering/{type}/vOTUs_VOGs.tsv",
+        #     main_dir = output_dir,
+        #     type="1_1_dvf"
+        #     )
+
+        # Split fasta
+        # expand("{main_dir}/{type}/seq_ids.tsv",
+        #     main_dir=output_dir,
+        #     type="1_1_dvf"
+        #     ),
+        
+        # # Sketch reference. 
+        # expand("{main_dir}/{type}/final-viral-combined.fa.msh",
+        #     main_dir=output_dir,
+        #     type="1_1_dvf"
+        #     ),
+
+        # expand("{main_dir}/8_0_identification/{type}_vOTUs.mat",
+        #     main_dir=output_dir,
+        #     type="1_1_dvf"
+        #     )
+
+        # Sequence identification
+        expand("{main_dir}/8_0_identification/{type}/phagcn_prediction.csv",
+            main_dir=output_dir,
+            type="1_1_dvf"
+            ),
+
+
+
+        # Tree creation
+        expand("{main_dir}/9_0_distance/{type}_tree.newick",
+            main_dir=output_dir,
             type="1_1_dvf"
             )
-        
+
         # Visualization
         # expand("{main_dir}/data_visualization/{files}.tsv", 
         #     main_dir=output_dir,
@@ -502,10 +532,9 @@ rule gene_calling_protein_comparison:
         cat  {input.viral_otus_fna} | prodigal -a {output.protein_translations} -p meta > {output.gene_calls}
         """
 
-
 rule all_against_all_fasta36:
     input:
-        protein_translations = "{main_dir}/6_0_gene_calls/{type}/vOTUs.faa"
+        viral_otus_fna = "{main_dir}/5_2_viral_otus/{type}/vOTUs.fna"
     output:
         all_against_all_search = "{main_dir}/6_1_all_against_all_search/{type}/vOTUs.fasta36"
     params:
@@ -519,66 +548,143 @@ rule all_against_all_fasta36:
 
         {params.fasta_36_bin} \
             -m {threads}  \
-            {input.protein_translations} \
-            {input.protein_translations} \
+            {input.viral_otus_fna} \
+            {input.viral_otus_fna} \
             > {output.all_against_all_search} 
         """
 
-rule markov_chain_clustering:
+rule phabox_identification:
     input:
-        protein_translations = "{main_dir}/6_0_gene_calls/{type}/vOTUs.faa",
-        all_against_all_search = "{main_dir}/6_1_all_against_all_search/{type}/vOTUs.fasta36"
+        contig_file = "{main_dir}/5_2_viral_otus/{type}/vOTUs.fna",
+        protein_file = 
     output:
-        v_otu_lengths =  "{main_dir}/7_0_clustering/{type}/vOTUs.faa.lengths",
-        v_otu_viral_orthologous_groups = "{main_dir}/7_0_clustering/{type}/vOTUs_VOGs.tsv"
-    params:
-        f2s_script = path.join(script_dir, "f2s"),
-        seqlengths_script =path.join(script_dir, "seqlengths"),
-        joincol_script = path.join(script_dir, "joincol"),
-        hashsums_script = path.join(script_dir, "hashsums"),
-        mcl_script = path.join(script_dir, "mcl")
+        out_file = "{main_dir}/8_0_identification/{type}_sequence_identification.tsv
+    params: 
+        phabox_script = path.join(virshimeome_dir, "PhaBOX", "main.py"),
+        database_dir = path.joinv(virshimeome_dir, "data", "phabox", "database"),
+        parameter_dir = path.joinv(virshimeome_dir, "data", "phabox", "parameters")
+    conda:
+        path.join(virshimeome_dir, "envs", "")
     shell:
         """
-        outdir=$(dirname {output.v_otu_viral_orthologous_groups})
+        outdir=$(dirname {output.out_file})        
         mkdir -p $outdir
 
-        cat {input.protein_translations} \
-            | perl {params.f2s_script} \
-            | perl {params.seqlengths_script} \
-            > {output.v_otu_lengths}
-
-        cat {input.all_against_all_search} \
-            | perl {params.joincol_script} {output.v_otu_lengths} \
-            | perl {params.joincol_script} {output.v_otu_lengths} 2 \
-            | awk '{{print $1 "\t" $2 "\t" $11 "\t" $13/$14 "\t" ($8-$7)/(2*$13)+($10-$9)/(2*$14) "\t" ($7+$8-$9-$10)/($13+$14)}}' \
-            | awk '{{if ($3 <= 0.05) print}}' \
-            | awk '{{if ($5 >= 0.4) print}}' \
-            | awk '{{if (sqrt(($4-1)^2) - (sqrt(sqrt($5))-.8) + sqrt($6^2) <= 0.1) print $1 "\t" $2}}' \
-            | mcl - -o - --abc | awk '{{j++; for (i = 1; i <= NF; i++) {{print $i "\t" j}}}}' \
-            > {output.v_otu_viral_orthologous_groups}
-        """
+        python {params.phabox_script} \
+            --threads 4 \
+            --contigs {input.contig_file} \
+            --out virulence \
+            --rootpth $outdir \
+            --dbdir {params.database_dir} \
+            --parampth {params.parameter_dir}
+        
+        '"""
 
 
-rule aggregate_pårotein_similarity:
+# rule fasta_split:
+#     input:
+#         complete_fasta_file = "{main_dir}/{type}/final-viral-combined.fa"
+#     output:
+#         seq_id_file = "{main_dir}/{type}/seq_ids.tsv"
+#     params:
+#         output_dir = "{main_dir}/{type}/split"
+#     run:
+#         def split_fasta(input_file, fasta_output_dir, seq_id_file):
+#             with open(input_file, 'r') as fasta_file:
+#                 seq_id = ''
+#                 sequence = ''
+#                 for line in fasta_file:
+#                     line = line.strip()
+#                     if line.startswith('>'):
+#                         if seq_id and sequence:
+#                             fasta_output_file = f"{fasta_output_dir}/{seq_id}.fa"
+#                             write_fasta_file(seq_id, sequence, fasta_output_file)
+#                             write_seq_path(fasta_output_file, seq_id_file)
+#                         seq_id = line[1:]
+#                         sequence = ''
+#                     else:
+#                         sequence += line
+#                 if seq_id and sequence:
+#                     write_fasta_file(seq_id, sequence, fasta_output_file)
+
+#         def write_seq_path(seq_id_path, output_file):
+#             with open(output_file, "a") as seq_id_file:
+#                 seq_id_file.write(seq_id_path + "\n")
+
+#         def write_fasta_file(seq_id, sequence, output_file):
+#             with open(output_file, 'w') as fasta_file:
+#                 fasta_file.write(f">{seq_id}\n{sequence}\n")
+
+#         if not os.path.exists(params.output_dir):
+#             os.makedirs(params.output_dir)
+
+#         # function calling 
+#         split_fasta(input.complete_fasta_file, params.output_dir, output.seq_id_file)
+
+# rule mash_sketching:
+#     input:
+#         complete_seq_file = "{main_dir}/{type}/final-viral-combined.fa"
+#     output:
+#         v_contigs_sketches = "{main_dir}/{type}/final-viral-combined.fa.msh"
+#     params:
+#         mash_bin = path.join(".", virshimeome_dir, "mash", "mash")
+#     threads:
+#         10
+#     shell:
+#         """
+#             mash sketch -p {threads} -o {output.v_contigs_sketches} -i {input.complete_seq_file}
+#         """
+
+# rule distance_calculation_mash:
+#     input:
+#         v_contigs_sketches = "{main_dir}/{type}/final-viral-combined.fa.msh",
+#         seq_id_file = "{main_dir}/{type}/seq_ids.tsv"
+#     output:
+#         v_otu_distance_matrix = "{main_dir}/9_0_distance/{type}_vOTUs.mat"
+#     threads:
+#         10
+#     shell:
+#         """
+#            mash dist -p {threads} {input.v_contigs_sketches} -l {input.seq_id_file} > {output.v_otu_distance_matrix}
+#         """
+
+
+# rule distance_calculation_andi:
+#     input:
+#         v_contigs_sketches = "{main_dir}/{type}/final-viral-combined.fa.msh",
+#         seq_id_file = "{main_dir}/{type}/seq_ids.tsv"
+#     output:
+#         v_otu_distance_matrix = "{main_dir}/9_0_distance/{type}_vOTUs_ANDI.mat"
+#     threads:
+#         10
+#     shell:
+#         """
+#             outdir=$(dirname {input}.seq_id_file})        
+#             cd $outdir 
+#             cd split/
+#             cat * \
+#             | andi \
+#             > {output.v_otu_distance_matrix}
+
+#         """
+
+rule tree_creation:
     input:
-        all_against_all_search = "{main_dir}/6_1_all_against_all_search/{type}/vOTUs.fasta36"
+        fasta_file = "{main_dir}/2_checkv/{type}/final-viral-combined.fa"
     output:
-        v_otu_distance_matrix = "{main_dir}/8_0_distances/{type}/vOTUs.mat"
+        tree_file = "{main_dir}/9_0_distance/{type}_tree.newick"
     params:
-        hashsums_script = path.join(script_dir, "hashsums"),
-        tree_bray_script = path.join(script_dir, "tree_bray"),
+        spam_script = path.join(virshimeome_dir,"multi-SpaM", "bin", "mutli-SpaM")
+    threads:
+        10 
     shell:
         """
-            awk '{if ($11 <= 0.05) print $1 "\t" $2 "\t" $12}' {input.all_against_all_search} \
-            | rev \
-            | sed 's/\t[[:digit:]]\+_/\t/' \
-            | rev \
-            | sed 's/_[[:digit:]]\+\t/\t/' \
-            | sort \
-            | perl {params.hashsums_script} \
-            | perl {params.tree_bray_script} \
-            > {output.v_otu_distance_matrix}
+        python {params.spam_script} \
+        -t {threads} \
+        -i {input.fasta_file \
+        -o {output.spam_script}
         """
+
 
 # Map using bwa
 # get contigs as reference and use the high quality paired-end reads to map to those reference reads. 
@@ -696,15 +802,17 @@ rule data_visualization:
     output:
         outputfiles = "{main_dir}/data_visualization/{files}.tsv"
     params:
-        visualizaton_script = visualization_script,
+        visualizaton_script = path.join(script_dir, "pipeline_visualization.R"),
+        method_comparison_visualization = path.join(script_dir, "viral_recognition_method_analysis.py") ,
         virshimeome_output_dir = output_dir
     shell:
         """
         outdir=$(dirname {output.outputfiles})        
         mkdir -p $outdir
-        python3 {params.visualizaton_script} \
+        python3 {params.method_comparison_visualization} \
             -i {params.virshimeome_output_dir} \
             -o $outdir
 
+        Rscript {params.visualizaton_script} 
         """
 

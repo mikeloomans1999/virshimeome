@@ -35,7 +35,7 @@ checkm_db_dir = path.join(data_dir, "checkm_db")
 #################
 # Define a function to expand the list of Pfam HMM files
 
-def vs_out()
+def vs_out():
     def vs_pfam_hmm_files():
         pfam_dir_db = path.join(vs2_db_dir,"hmm", "pfam")
         pfam_hmm_list  =  [f"Pfam-A-{hmm_type}.hmm" for hmm_type in ["Archaea", "Bacteria", "Eukaryota", "Mixed", "Viruses"]]
@@ -62,29 +62,29 @@ def vs_out()
                 file = group_files
                 )
 
-    return vs_pfam_hmm_files + vs_rbs_files + vs_group_files
+    return vs_pfam_hmm_files() + vs_rbs_files() + vs_group_files()
 
 
-def checkv_out()
-    # Define a function to expand the list of CheckV databases
+def checkv_out():
     def check_v_genome_files(): 
-        genome_db_dir = path.joincheck_v_db_dir,"genome_db")
+        genome_db_dir = path.join(checkv_db_dir, "genome_db")
         genome_file_types = ["error.tsv", "info.tsv", "reps.dmnd", "reps.faa", "reps.fna", "reps.log", "reps.tsv"]
-        genome_db_files = expand("{genome_db_dir}" + os.sep + "checkv_{genome_file_type}",
+        return expand("{genome_db_dir}" + os.sep + "checkv_{genome_file_type}",
                 genome_db_dir = genome_db_dir,
                 genome_file_type = genome_file_types
-                )    
-        return genome_db_files
+                )
 
     def checkv_hmm_files():
-        hmm_db_dir = path.joincheck_v_db_dir, "hmm_db", "checkv_hmms")
+        hmm_db_dir = path.join(checkv_db_dir, "hmm_db", "checkv_hmms")
         hmm_index_range = [*range(1,81)]
         hmm_db_files = expand("{hmm_db_dir}/{hmm_index}.hmm", 
                 hmm_db_dir = hmm_db_dir, 
                 hmm_index = hmm_index_range
                 )
         return hmm_db_files
-    return check_v_genome_files + checkv_hmm_files
+    
+    return check_v_genome_files() + checkv_hmm_files()
+
 
 #############
 ##  Rules  ##
@@ -93,7 +93,9 @@ rule all:
     input:
         checkv_out(),
         vs_out(),
-         "{data_dir}/CheckM2_database/uniref100.KO.1.dmnd"
+        # expand("{data_dir}/CheckM2_database/uniref100.KO.1.dmnd",
+        #     data_dir = data_dir
+        #     ),
 
 
 # Construct virsorter2 database
@@ -112,19 +114,35 @@ rule vs_db:
         mkdir -p {params.data_dir}
         virsorter setup -d {params.vs2_db_dir} -j {threads} --scheduler greedy
         """
+
 # Construct checkV database. 
 rule checkv_db:
     output:
         checkv_out()
     params:
         data_dir = data_dir,
+        checkv_db_dir =checkv_db_dir
     conda:
         path.join(env_dir, "virshimeome_base.yml") #checkv
     shell:
         """
         checkv download_database {params.data_dir}
-        mv {params.data_dir}/checkv-db* {outputcheck_v_db_dir}
-        export CHECKVDB={outputcheck_v_db_dir}
+        mv {params.data_dir}/checkv-db* {params.checkv_db_dir}
+        export CHECKVDB={params.checkv_db_dir}
+        """
+rule fasta36:
+    output:
+        "{main_dir}/FASTA/bin/fasta36"
+    params:
+        fasta_dir = path.join(virshimeome_dir, "FASTA")
+    shell:
+        """
+        mkdir -p {params.fasta_dir}
+        cd {params.fasta_dir}
+
+        wget https://fasta.bioch.virginia.edu/wrpearson/fasta/fasta36/fasta-36.3.8i.tar.gz fasta.tar.gz
+        tar -xf fasta.tar.gz
+        
         """
 
 rule checkm_db:
@@ -133,11 +151,32 @@ rule checkm_db:
     params:
         data_dir = data_dir
     conda:
-        path.join(env_dir, "checkm.yml")
+        path.join(env_dir, "checkm2.yml")
     shell:
         """
         checkm2 database \
             --download  \
             --path {params.data_dir}        
 
+        """
+
+rule dvf:
+    output:
+        "{main_dir}/DeepVirFinder/dvf.py"
+    shell:
+        """
+        git clone https://github.com/jessieren/DeepVirFinder 
+        """
+
+rule markov_chain_clustering:
+    output:
+        "{main_dir}/mcl/bin/mcl"
+    params:
+        mcl_dir = "{main_dir}/mcl"
+    shell:
+        """
+        mkdir -p {params.mcl_dir}
+        cd {params.mcl_dir}
+        wget https://raw.githubusercontent.com/micans/mcl/main/install-this-mcl.sh -o install-this-mcl
+        bash install-this-mcl.sh
         """

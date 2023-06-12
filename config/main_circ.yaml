@@ -34,4 +34,3 @@ algorithm_bwa: mem
 min_length_alignment_abundance: 80
 percentage_identity_abundance: 95 # Percentage not decimal
 percentage_read_aligned_abundance: 80 # Percentage not decimal
-
