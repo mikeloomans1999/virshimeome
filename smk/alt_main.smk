@@ -12,7 +12,8 @@ include: 'main_config_parser.smk'
 ##  Imports  ##
 ###############
 from os import path, mkdir
-import glob, csv
+import glob
+from csv import reader 
 from itertools import groupby
 
 #################
@@ -30,7 +31,7 @@ def make_dirs(abs_dir_list):
 ##  Variables  ##
 #################
 
-# Input # 
+# Iut # 
 project_name=config["PROJECT"]
 virshimeome_dir=config["virshimeome_dir"]
 hq_reads_dir=directory(config["hq_reads_dir"]) # This will be subdivided into numerous dirs and a things will have to be setup to iterate through them :(.
@@ -87,30 +88,20 @@ rule all:
         # Split fasta
         expand("{main_dir}/{type}/seq_ids.tsv",
             main_dir=output_dir,
-            type="1_1_dvf"
+            type="0_filtered_sequences"
             ),
         
-        # Sketch reference. 
-        expand("{main_dir}/{type}/final-viral-combined.fa.msh",
+        # fastANI
+        expand("{main_dir}/{type}/raw_all_against_all.out",
             main_dir=output_dir,
-            type="1_1_dvf"
+            type="0_filtered_sequences"
             ),
-
-        expand("{main_dir}/8_0_distances/{type}_vOTUs.mat",
-            main_dir=output_dir,
-            type="1_1_dvf"
-            ),
-
-        expand("{main_dir}/8_0_distances/{type}_vOTUs_ANDI.mat",
-            main_dir=output_dir,
-            type="1_1_dvf"
+        
+        # Filtering sequences based on similarity
+        expand("{main_dir}/{type}/revised_seq_ids.tsv",
+            main_dir = output_dir,
+            type="0_filtered_sequences"
             )
-
-        # Visualization
-        # expand("{main_dir}/data_visualization/{files}.tsv", 
-        #     main_dir=output_dir,
-        #     files = graph_filenames
-        #     )
 
 
 rule fasta_split:
@@ -140,8 +131,8 @@ rule fasta_split:
                     write_fasta_file(seq_id, sequence, fasta_output_file)
 
         def write_seq_path(seq_id_path, output_file):
-            with open(output_file, "a") as seq_id_file:
-                seq_id_file.write(seq_id_path + "\n")
+            with open(output_file, "a") as output_object:
+                output_object.write(seq_id_path + "\n")
 
         def write_fasta_file(seq_id, sequence, output_file):
             sequences_formatted = "\n".join([sequence[x:x+70] for x in range(0, len(sequence), 70)])
@@ -154,48 +145,104 @@ rule fasta_split:
         # function calling 
         split_fasta(input.complete_fasta_file, params.output_dir, output.seq_id_file)
 
-rule mash_sketching:
+rule fastani:
     input:
-        complete_seq_file = "{main_dir}/{type}/final-viral-combined.fa"
+        seq_id_file = "{main_dir}/{type}/seq_ids.tsv"
     output:
-        v_contigs_sketches = "{main_dir}/{type}/final-viral-combined.fa.msh"
+        fastani_out = "{main_dir}/{type}/raw_all_against_all.out",
+        fastani_out_matrix = "{main_dir}/{type}/raw_all_against_all.out.matrix"
     params:
-        mash_bin = path.join(".", virshimeome_dir, "mash", "mash")
+        contig_lenght = 2000
     threads:
-        10
+        10 
+    conda:
+        path.join(virshimeome_dir, "envs", "fastani.yml")
     shell:
         """
-            mash sketch -p {threads} -o {output.v_contigs_sketches} -i {input.complete_seq_file}
+        fastANI \
+            --rl {input.seq_id_file} \
+            --ql {input.seq_id_file} \
+            -t {threads} \
+            --fragLen {params.contig_lenght} \
+            --matrix \
+            -o {output.fastani_out} \
+            > fastANI.log
+
         """
 
-rule aggregate_protein_similarity:
+rule ani_filter:
     input:
-        v_contigs_sketches = "{main_dir}/{type}/final-viral-combined.fa.msh",
-        seq_id_file = "{main_dir}/{type}/seq_ids.tsv"
+        seq_id_file = "{main_dir}/{type}/seq_ids.tsv",
+        fastani_out = "{main_dir}/{type}/raw_all_against_all.out",
+        fastani_out_matrix = "{main_dir}/{type}/raw_all_against_all.out.matrix"
     output:
-        v_otu_distance_matrix = "{main_dir}/8_0_distances/{type}_vOTUs.mat"
-    threads:
-        10
-    shell:
-        """
-           mash dist -p {threads} {input.v_contigs_sketches} -l {input.seq_id_file} > {output.v_otu_distance_matrix}
-        """
+        revised_seq_ids = "{main_dir}/{type}/revised_seq_ids.tsv"
+    params:
+        ani_threshold = 99.9
+    run:
 
-rule distance_calc:
-    input:
-        v_contigs_sketches = "{main_dir}/{type}/final-viral-combined.fa.msh",
-        seq_id_file = "{main_dir}/{type}/seq_ids.tsv"
-    output:
-        v_otu_distance_matrix = "{main_dir}/8_0_distances/{type}_vOTUs_ANDI.mat"
-    threads:
-        10
-    shell:
-        """
-            outdir=$(dirname {input}.seq_id_file})        
-            cd $outdir 
-            cd split/
-            cat * \
-            | andi \
-            > {output.v_otu_distance_matrix}
+        def convert_set_to_file(set_input, output_file):
+            with open(output_file, "a") as new_file:
+                for seq_id in set_input:
+                    new_file.write(f"{seq_id}\n")
 
-        """
+        # Get all ids
+        with open(input.seq_id_file, "r") as seq_id_no_filter:
+            all_ids = set(seq_id_no_filter.read().splitlines())
+            
+        identical_ids = []
+
+        # Obatain all 
+        removed = 0
+        with open(input.fastani_out, "r") as fastani_out:
+            fastani_out_read = reader(fastani_out, delimiter="\t")
+            for row in fastani_out_read:
+                if float(row[2]) >= float(params.ani_threshold) and row[0] != row[1]:
+                    # Check if the current identical set of sequences is already mentioned here.    
+                    if row[0] in all_ids and row[1] in all_ids:
+                        all_ids.remove(row[0])
+                        all_ids.remove(row[1])
+                        identical_ids.append({row[0], row[1]})
+                        removed += 2
+                    else:
+                        # One of the ids is already present in the set and one has to be added. 
+                        # If there has been a mistake of some kind this will just do nothing. 
+                        index_of_interest = 0 if row[0] in all_ids else 1 # so if index 0 is not in all ids then the other must be. 
+                        if row[0] in all_ids:
+                            index_of_interest = 0
+                        elif row[1] in all_ids: # Not in ids
+                            index_of_interest = 1
+                        else:
+                            continue
+                            # None in ids are presumably already correctly identified. 
+                            
+                        for id_set in identical_ids:
+                            if row[index_of_interest] in id_set:
+                                id_set.add(row[index_of_interest])
+                                removed += 1
+                                # Remove from all_ids so we're left with just singletons. 
+                                all_ids.remove(row[index_of_interest])
+                                break
+        # Apply filter
+        longest_identical_ids = set()
+        for id_set in identical_ids:
+            longest_contig = 0 
+            for id in id_set:
+                seq_id_list = id.split("_")
+                contig_length = int(seq_id_list[seq_id_list.index("length") + 1])
+                if contig_length > longest_contig:
+                    longest_id = id
+            
+            longest_identical_ids.add(id)
+        removed -= len(longest_identical_ids)
+        revised_ids = all_ids.union(longest_identical_ids)
+        print(removed)
+        convert_set_to_file(revised_ids, output.revised_seq_ids)
+
+
+
+# See a 100% match
+# Check existing list with sets for either ID in each set.  I can do this in parallel. 
+# If neither ID exists create a new set entry with both inside. 
+# If one of the IDs is found in a set add both to that set. (the duplicate will not get added. )
+
