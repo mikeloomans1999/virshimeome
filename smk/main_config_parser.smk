@@ -157,15 +157,15 @@ elif type(config["min_length_alignment_abundance"]) != int:
 else:
     min_length_alignment_abundance=config["min_length_alignment_abundance"]
 
-# PERCENTAGE IDENTITY FOR ABUNDANCE     
-if config["percentage_identity_abundance"] is None:
-    print('ERROR in ', config_path, ': the percentage_identity_abundance variable is empty. Please, complete')
-    percentage_identity_abundance=config["percentage_identity_abundance"]
-elif type(config["percentage_identity_abundance"]) != int and type(config["percentage_identity_abundance"]) != float :
-    print('ERROR in ', config_path, ': the percentage_identity_abundance is not an interger or float. Please, complete', config_path)
-    percentage_identity_abundance=config["percentage_identity_abundance"]
+# ANI THRESHOLD
+if config["ani_threshold"] is None:
+    print('ERROR in ', config_path, ': the ani_threshold variable is empty. Please, complete')
+    ani_threshold=config["ani_threshold"]
+elif type(config["ani_threshold"]) != int and type(config["ani_threshold"]) != float :
+    print('ERROR in ', config_path, ': the ani_threshold is not an interger or float. Please, complete', config_path)
+    ani_threshold=config["ani_threshold"]
 else:
-    percentage_identity_abundance=config["percentage_identity_abundance"]
+    ani_threshold=config["ani_threshold"]
 
 # PERCENTAGE OF READ ALIGNED FOR ABUNDANCE
 if config["percentage_read_aligned_abundance"] is None:

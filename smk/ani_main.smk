@@ -14,7 +14,6 @@ include: 'main_config_parser.smk'
 from os import path, mkdir
 import glob
 from csv import reader
-from itertools import groupby
 
 #################
 ##  Functions  ##
@@ -97,7 +96,7 @@ rule all:
             ),
         
         # fastANI
-        expand("{main_dir}/0_filtered_sequences/raw_all_against_all.out",
+        expand("{main_dir}/9_0_distance/raw_all_against_all.out",
             main_dir=output_dir
             ),
         
@@ -137,29 +136,23 @@ rule all:
         #     main_dir=output_dir,
         #     type=subdirs
         #     ),
-
-        # Alignment (blat)
-        expand("{main_dir}/4_alignment/{type}/contigs_aligned.blat", 
-            main_dir=output_dir,
-            type="1_1_dvf"
-            ),
         
         # vOTU clutsering(script)
-        expand("{main_dir}/5_1_contig_lengths/{type}/contigs.all.lengths",
-            main_dir=output_dir,
-            type="1_1_dvf"
-            ),
+        # expand("{main_dir}/5_1_contig_lengths/{type}/contigs.all.lengths",
+        #     main_dir=output_dir,
+        #     type="1_1_dvf"
+        #     ),
 
-        expand("{main_dir}/5_2_viral_otus/{type}/vOTUs.fna",
-            main_dir=output_dir,
-            type="1_1_dvf"
-            ),
+        # expand("{main_dir}/5_2_viral_otus/{type}/vOTUs.fna",
+        #     main_dir=output_dir,
+        #     type="1_1_dvf"
+        #     ),
 
-        # gene calling and comparison (prodigal)
-        expand("{main_dir}/6_0_gene_calls/{type}/vOTUs.gbk",
-            main_dir = output_dir,
-            type="1_1_dvf"
-            ),
+        # # gene calling and comparison (prodigal)
+        # expand("{main_dir}/6_0_gene_calls/{type}/vOTUs.gbk",
+        #     main_dir = output_dir,
+        #     type="1_1_dvf"
+        #     ),
 
         # Sequence identification (phabox)
         # expand("{main_dir}/8_0_identification/{type}/blast_results.tab",
@@ -167,12 +160,14 @@ rule all:
         #     type="1_1_dvf"
         #     ),
 
-        # Distance calculation (euclid normalised)
-        expand("{main_dir}/9_0_distance/{type}/raw_all_against_all.out",
+       
+
+
+        # Distance matrix (alfpy, euclid)
+        expand("{main_dir}/9_0_distance/{type}/distance_euclid.mat",
             main_dir=output_dir,
             type="1_1_dvf"
-            )
-
+            ),
 
         # Visualization
         # expand("{main_dir}/data_visualization/{files}.tsv", 
@@ -264,14 +259,15 @@ rule fasta_split:
 
 rule fastani:
     input:
-        seq_id_file = "{main_dir}/{type}/seq_ids.tsv"
+        seq_id_file = "{main_dir}/0_filtered_sequences/seq_ids.tsv"
     output:
-        fastani_out = "{main_dir}/{type}/raw_all_against_all.out",
-        fastani_out_matrix = "{main_dir}/{type}/raw_all_against_all.out.matrix"
+        fastani_out = "{main_dir}/9_0_distance/raw_all_against_all.out"
     params:
-        contig_lenght = 2000
+        fastani_tenp = "{main_dir}/9_0_distance/raw_all_against_all_temp.out", 
+        contig_length = min_contig_length, # There has already been a length trim but this value must exist. 
+        ani_threshold = ani_threshold
     threads:
-        10 
+        20 
     conda:
         path.join(virshimeome_dir, "envs", "fastani.yml")
     shell:
@@ -280,76 +276,38 @@ rule fastani:
             --rl {input.seq_id_file} \
             --ql {input.seq_id_file} \
             -t {threads} \
-            --fragLen {params.contig_lenght} \
-            --matrix \
-            -o {output.fastani_out} \
-            > fastANI.log
+            --fragLen {params.contig_length} \
+            -o {params.fastani_tenp} 
+        
+        echo fastANI \
+            --rl {input.seq_id_file} \
+            --ql {input.seq_id_file} \
+            -t {threads} \
+            --fragLen {params.contig_length} \
+            -o {params.fastani_tenp} 
+
+        awk -F'\t' '!($1 == $2) && $3 >= {params.ani_threshold}' {params.fastani_tenp} > {output.fastani_out}
 
         """
 
 rule ani_filter:
     input:
         seq_id_file = "{main_dir}/0_filtered_sequences/seq_ids.tsv",
-        fastani_out = "{main_dir}/0_filtered_sequences/raw_all_against_all.out",
-        fastani_out_matrix = "{main_dir}/0_filtered_sequences/raw_all_against_all.out.matrix"
+        fastani_out = "{main_dir}/9_0_distance/raw_all_against_all.out"
     output:
         revised_seq_ids = "{main_dir}/0_filtered_sequences/revised_seq_ids.tsv"
     params:
-        ani_threshold = 99.9
-    run:
-
-        def convert_set_to_file(set_input, output_file):
-            with open(output_file, "a") as new_file:
-                for seq_id in set_input:
-                    new_file.write(f"{seq_id}")
-
-        # Get all ids
-        with open(input.seq_id_file, "r") as seq_id_no_filter:
-            all_ids = set(seq_id_no_filter.read().splitlines())
-        
-        # Get all duplicates and select the longest out of each one. 
-        identical_ids = [] 
-        with open(input.fastani_out, "r") as fastani_out:
-            fastani_out_read = reader(fastani_out, delimiter="\t")
-            for row in fastani_out_read:
-                if float(row[2]) >= float(params.ani_threshold) and row[0] != row[1]:
-                    # Check if the current identical set of sequences is already mentioned here.    
-                    if row[0] in all_ids and row[1] in all_ids: # new 
-                        all_ids.remove(row[0])
-                        all_ids.remove(row[1])
-                        identical_ids.append({row[0], row[1]})
-                    else:
-                        # One of the ids is already present in the set and one has to be added. 
-                        # If there has been a mistake of some kind this will just do nothing. 
-                        index_of_interest = 0 if row[0] in all_ids else 1 # so if index 0 is not in all ids then the other must be. 
-                        if row[0] in all_ids:
-                            index_of_interest = 0
-                        elif row[1] in all_ids: # Not in ids
-                            index_of_interest = 1
-                        else:
-                            continue
-                            # None, ids are presumably already correctly identified. 
-                            # This could happen if the ids were already found independently through other duplicate sequences.
-                            
-                        for id_set in identical_ids:
-                            if row[index_of_interest] in id_set: # Check for right id_set. 
-                                id_set.add(row[index_of_interest])
-                                # Remove from all_ids so we're left with just singletons. 
-                                all_ids.remove(row[index_of_interest])
-                                break
-        # Apply filter
-        longest_identical_ids = set()
-        for id_set in identical_ids:
-            longest_contig = 0 
-            for id in id_set:
-                seq_id_list = id.split("_")
-                contig_length = int(seq_id_list[seq_id_list.index("length") + 1])
-                if contig_length > longest_contig:
-                    longest_id = id
-            
-            longest_identical_ids.add(id)
-        revised_ids = all_ids.union(longest_identical_ids)
-        convert_set_to_file(revised_ids, output.revised_seq_ids)
+        ani_threshold = ani_threshold,
+        ani_filter_script = path.join(script_dir, "fastani_filter.py")
+    conda:
+        path.join(virshimeome_dir, "envs", "py36_env.yml")
+    shell:
+        """
+        python3 {params.ani_filter_script} \
+            --seq_id_file {input.seq_id_file} \
+            --fastani_out {input.fastani_out} \
+            --revised_seq_ids {output.revised_seq_ids}
+        """
 
 
 rule concat_new_viral_sequences:
@@ -359,7 +317,7 @@ rule concat_new_viral_sequences:
         output_fasta = "{main_dir}/0_filtered_sequences/final-viral-combined.fa"
     shell:
         """
-        cat  $(cat {input.revised_seq_ids}) > {output.output_fasta}
+        xargs -a {input.revised_seq_ids} -I{{}} cat {{}} > {output.output_fasta}
         """
 
 
@@ -427,51 +385,32 @@ rule deep_vir_finder:
             -c {threads} \
             -o $outdir
             
-
         """
 
 rule convert_dvf_results_to_sequences:
     input:
         dvf_summary = "{main_dir}/1_1_dvf/final-viral-combined.fa_gt1bp_dvfpred.txt",
-        sequence_files = "{main_dir}/0_filtered_sequences/final-viral-combined.fa"
+        fasta_file = "{main_dir}/0_filtered_sequences/final-viral-combined.fa"
     output:
         viral_combined_dvf = "{main_dir}/1_1_dvf/final-viral-combined.fa"
     params:
+        dvf_script_to_sequnces_script = path.join(script_dir, "dvf_to_sequences.py"),
         min_score_dvf=min_score_dvf,
         max_pval_dvf=max_pval_dvf
-    run:
-        def read_fasta_file(fasta_file):
-            # https://www.biostars.org/p/710/#383479
-            with open(fasta_file, 'rb') as fasta_file_read:
-                faiter = (x[1] for x in groupby(fasta_file_read, lambda line: str(line, 'utf-8')[0] == ">"))
-                for header in faiter:
-                    seq_id = str(header.__next__(), 'utf-8').replace("\n", "")
-                    seq = "".join(str(s, 'utf-8').strip() for s in faiter.__next__()) + "\n"
-                    yield seq_id, seq
-
-        # Get IDs of viral contigs matching filters. 
-        viral_contig_ids = []
-        with open(input.dvf_summary, "r") as dvf_file:
-            dvf_summary_read = reader(dvf_file, delimiter="\t")
-            next(dvf_summary_read) # Skip header
-            for row in dvf_summary_read:
-                seq_id = row[0]
-                score = float(row[2])
-                pvalue = float(row[3])
-                if score >= params.min_score_dvf and pvalue <= params.max_pval_dvf:
-                    viral_contig_ids.append(">" + seq_id)
-
-        # Write viral contigs to file.                 
-        with open(output.viral_combined_dvf, "a") as dvf_viral_contig_file:
-            for seq_id, seq in read_fasta_file(input.sequence_files):
-                # Iterate through the entire object so the gc can clean up after.                
-                if seq_id in viral_contig_ids:
-                    dvf_viral_contig_file.write(seq_id + "\n" + seq)
+    shell:
+        """
+        python {params.dvf_script_to_sequnces_script} \
+            --fasta_file {input.fasta_file} \
+            --dvf_summary_file {input.dvf_summary}
+            --viral_combined_dvf {output.viral_combined_dvf} \
+            --min_score_dvf {params.min_score_dvf} \
+            --max_pval_dvf {params.max_pval_dvf}  
         
+        """
 
-# ##############
-# ##  checkv  ##
-# ##############
+##############
+##  checkv  ##
+##############
 # TODO check usage without contamination step. 
 rule checkv:
     """
@@ -690,7 +629,7 @@ rule all_against_all_fasta36:
 
 rule phabox_identification:
     input:
-        contig_file = "{main_dir}/5_2_viral_otus/{type}/vOTUs.fna",
+        contig_file = "{main_dir}/{type}/final-viral-combined.fa",
     output:
         out_file = "{main_dir}/8_0_identification/{type}/blast_results.tab"
     params: 
@@ -703,7 +642,7 @@ rule phabox_identification:
         path.join(virshimeome_dir, "envs", "phabox.yml") # Conda environment has a non-existent conflict with blast > 2.10.1, which causes problems
         #"/home/mnc390/anaconda3/envs/phabox"
     threads:
-        4
+        20
     shell:
         """
         mkdir -p {params.outdir}
@@ -716,7 +655,7 @@ rule phabox_identification:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir}
 
-        python {params.phabox_script} \
+         {params.phabox_script} \
             --threads {threads} \
             --contigs {input.contig_file} \
             --rootpth {params.outdir} \
@@ -725,15 +664,15 @@ rule phabox_identification:
             --parampth {params.parameter_dir}
         
         """
-# PhaBOX/main.py --threads 14 --contigs /projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/2_checkv/0_filtered_sequences/viruses.fna --out 0_filtered_sequences --rootpth /projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/8_0_identification/ --dbdir data/phabox_db/database --parampth data/phabox_db/parameters 
-# PhaBOX/main.py --threads 14 --contigs /projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/2_checkv/1_1_dvf/viruses.fna --out 1_1_dvf --rootpth /projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/8_0_identification/ --dbdir data/phabox_db/database --parampth data/phabox_db/parameters 
-# PhaBOX/main.py --threads 14 --contigs /projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/2_checkv/1_1_vs/viruses.fna --out 0_filtered_sequences --rootpth /projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/8_0_identification/ --dbdir data/phabox_db/database --parampth data/phabox_db/parameters 
 
-rule distance_calculation:
+rule euclid_distance_calculation:
     input:
         fasta_file = "{main_dir}/2_checkv/{type}/final-viral-combined.fa"
     output:
-        distance_matrix  = "{main_dir}/9_0_distance/{type}/raw_all_against_all.out"  # TODO add metric param
+        distance_matrix  = "{main_dir}/9_0_distance/{type}/distance_euclid.mat",
+        seq_id_file =  "{main_dir}/9_0_distance/{type}/seq_ids.txt"
+    params:
+        distance_script = path.join(script_dir, "distance_calculation.py")
     threads:
         20
     conda:
@@ -744,12 +683,18 @@ rule distance_calculation:
         outdir=$(dirname {output.distance_matrix})        
         mkdir -p $outdir
 
-        python {distance_script} \
-            -i {input.fasta_file} \
-            -o {output_file} 
+        python {params.distance_script} \
+            -input {input.fasta_file} \
+            -output {output.distance_matrix} 
+
+        echo python {params.distance_script} \
+            -input {input.fasta_file} \
+            -output {output.distance_matrix} 
 
         sed -i '1d' {output.distance_matrix}
         """
+
+
 
 rule tree_creation:
     input:
@@ -792,7 +737,7 @@ rule data_visualization:
         python3 {params.method_comparison_visualization} \
             -i {params.virshimeome_output_dir} \
             -o $outdir
-
+        
         Rscript {params.visualizaton_script} 
         """
 
