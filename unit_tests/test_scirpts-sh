@@ -1,0 +1,22 @@
+#!/bin/bash
+
+python3 scripts/dvf_to_sequences.py --dvf_summary_file /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/1_1_dvf/final-viral-combined.fa_gt2000bp_dvfpred.txt --fasta_file /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/0_filtered_sequences/final-viral-combined.fa --viral_combined_dvf /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/1_1_dvf/final-viral-combined.fa --min_score_dvf 0.7 --max_pval_dvf 0.05
+python3 scripts/distance_calculation.py --input /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/1_1_dvf/final-viral-combined.fa --output /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/9_0_distance/1_1_dvf/distance_euclid.mat
+
+python3 scripts/construct_tree.py --matrix_file /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/9_0_distance/1_1_dvf/distance_euclid.mat --outfile /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/data_visualization/circular_cladogram.png
+
+python PhaBOX/main.py --threads 14 --contigs /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/1_1_dvf/final-viral-combined.fa --len 2000 --rootpth /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/8_0_identification/1_1_dvf/ --out output --dbdir data/phabox_db/database --parampth data/phabox_db/parameters
+
+checkv end_to_end /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/1_1_dvf/final-viral-combined.fa  /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/2_checkv/1_1_dvf -t 20 -d data/checkv_db
+checkv end_to_end /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/0_filtered_sequences/final-viral-combined.fa /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/2_checkv/0_filtered_sequences -t 20 -d data/checkv_db
+
+checkv end_to_end /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/1_1_vs/final-viral-combined.fa  /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/2_checkv/1_1_vs -t 20 -d data/checkv_db
+
+
+
+
+
+
+
+conda activate py36_env; 
+python3 scripts/viral_recognition_method_analysis.py --pipeline_output_dir /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome/
