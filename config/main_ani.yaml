@@ -8,7 +8,7 @@ local_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virsh
 virshimeome_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome
 hq_reads_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/reads
 contig_dir: /projects/arumugam/scratch/mjq180/Diet3_for_Mike 
-output_dir: /projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output
+output_dir: /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome_rerun
 deep_vir_finder_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome/DeepVirFinder
 # Resources 
 memory: 20 # In gigabytes

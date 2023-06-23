@@ -7,7 +7,7 @@ dependencies:
   - _openmp_mutex=4.5=2_gnu
   - alsa-lib=1.2.8=h166bdaf_0
   - attr=2.5.1=h166bdaf_1
-  - biopython=1.79=py310h5764c6d_2
+  - biopython=1.81=py310h1fa729e_0
   - brotli=1.0.9=h166bdaf_8
   - brotli-bin=1.0.9=h166bdaf_8
   - bzip2=1.0.8=h7f98852_4
@@ -98,7 +98,7 @@ dependencies:
   - nss=3.89=he45b914_0
   - numpy=1.23.4=py310h53a5b5f_0
   - openjpeg=2.5.0=hfec8fc6_2
-  - openssl=3.1.0=hd590300_3
+  - openssl=3.1.1=hd590300_1
   - packaging=23.1=pyhd8ed1ab_0
   - pandas=2.0.2=py310h7cbd5c2_0
   - pcre2=10.40=hc3806b6_0
@@ -149,4 +149,6 @@ dependencies:
   - xz=5.2.6=h166bdaf_0
   - zlib=1.2.13=h166bdaf_4
   - zstd=1.5.2=h3eb15da_6
+  - pip:
+      - networkx==3.1
 prefix: /home/mnc390/anaconda3/envs/py36_env

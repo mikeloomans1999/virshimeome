@@ -51,13 +51,13 @@ available_threads = workflow.cores
 # Contig selection (custom script & virsorter2)
 vs_db_dir = path.join(virshimeome_dir, "data", "vs2_db")
 circular = config["circular"]
-min_contig_length = config["min_contig_length"]
-max_contig_length = config["max_contig_length"]
+min_contig_length = int(config["min_contig_length"])
+max_contig_length = int(config["max_contig_length"])
 min_score_vir_recognition = config["min_score_vir_recognition"]
 
 # dvf contig selection
-min_score_dvf = config["min_score_dvf"]
-max_pval_dvf = config["max_pval_dvf"]
+min_score_dvf = float(config["min_score_dvf"])
+max_pval_dvf = float(config["max_pval_dvf"])
 
 # Checkv
 checkv_db_dir = path.join(virshimeome_dir, "data", "checkv_db")

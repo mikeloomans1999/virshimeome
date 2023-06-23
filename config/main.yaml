@@ -7,7 +7,7 @@ working_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_vir
 local_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome
 virshimeome_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome
 hq_reads_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/reads
-# contig_dir: /projects/arumugam/scratch/mjq180/Diet3_for_Mike 
+contig_dir: /projects/arumugam/scratch/mjq180/Diet3_for_Mike 
 # contig_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/MAGS
 # contig_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/mag_subset/
 output_dir: /projects/arumugam/scratch/mnc390/virome_testing/no_filter_virshimeome_pipeline_output
@@ -34,5 +34,5 @@ algorithm_bwa: mem
 
 # Relative abundance (samtools & msamtools)
 min_length_alignment_abundance: 80
-percentage_identity_abundance: 95 # Percentage not decimal
+ani_threshold: 99.9 # Percentage not decimal
 percentage_read_aligned_abundance: 80 # Percentage not decimal

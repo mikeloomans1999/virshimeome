@@ -64,7 +64,11 @@ def plot_by_contig_length(checkv_qs_df, combined_contig_file, output_file):
 
     # Plot #
     contig_length_figure, contig_length_axes = plt.subplots()
+    contig_length_axes.set_xscale('log')
+    contig_length_axes.set_xlim(1000, max(contig_lengths))
     contig_length_axes.plot(contig_lengths, range(0, len(contig_lengths)))
+    contig_length_axes.set_xlabel("log MAG length (bp)")
+    contig_length_axes.set_ylabel("frequency (n)")
     plt.savefig(output_file)
 
 
@@ -75,9 +79,12 @@ def plot_by_contig_length(checkv_qs_df, combined_contig_file, output_file):
     combined_contig_sequences = SeqIO.parse(combined_contig_file, 'fasta')
     for record in  SeqIO.parse(combined_contig_file, 'fasta'):
         len_combined_contig_sequences += 1
+    
+    
+    print(f'##############\n##  type: {output_file.split("/")[-1]}  ##\n##############')
     print( "Number of contigs: ", len_combined_contig_sequences)
     print("Percentage of contigs that are of viral origin", len(contig_lengths) / len_combined_contig_sequences* 100, "%") 
-
+    print("Median:", np.median(contig_lengths))
 
 def plot_quality_by_contig(checkv_qs_df_dvf, checkv_qs_df_vs, checkv_qs_df_none, outdir):
     ##############################
@@ -117,6 +124,7 @@ def plot_quality_by_contig(checkv_qs_df_dvf, checkv_qs_df_vs, checkv_qs_df_none,
      # Shrink current axis by 20%
     box = circular_absolute_axes.get_position()
     circular_absolute_axes.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    circular_absolute_axes.set_ylabel("frequency (n")
 
     # Put a legend to the right of the current axis
     circular_absolute_axes.legend(loc='center left', bbox_to_anchor=(1, 0.5))
@@ -177,8 +185,8 @@ def quality_by_length(checkv_qs_df, outfile):
     values = values = [value if value is not None else 0 for value in values]
     
     contig_lengths_figure, contig_lengths_axes = plt.subplots(figsize=(10,10))
-    contig_lengths_axes.set_ylabel("contig length")
-    contig_lengths_axes.set_xlabel("contig quality")
+    contig_lengths_axes.set_ylabel("contig length (bp)",  fontsize=15)
+    contig_lengths_axes.set_xlabel("contig quality", fontsize=15)
     contig_lengths_axes.boxplot(values)
     contig_lengths_axes.set_xticklabels(quality_types)
     plt.xticks(rotation=35)
@@ -221,9 +229,9 @@ def main():
     checkv_qs_df_dvf, checkv_qs_df_vs, checkv_qs_df_none = load_data(checkv_quality_sum_dvf_file, checkv_quality_sum_vs_file, checkv_quality_sum_none_file)
     
     # Plot by length
-    plot_by_contig_length(checkv_qs_df_dvf, combined_contig_file, path.join(visualization_output_dir, "contig_length_by_frequency_dvf.svg"))
-    plot_by_contig_length(checkv_qs_df_vs, combined_contig_file, path.join(visualization_output_dir, "contig_length_by_frequency_vs.svg"))
-    plot_by_contig_length(checkv_qs_df_none, combined_contig_file, path.join(visualization_output_dir, "contig_length_by_frequency_none.svg"))
+    plot_by_contig_length(checkv_qs_df_dvf, combined_contig_file, path.join(visualization_output_dir, "contig_length_by_frequency_dvf.png"))
+    plot_by_contig_length(checkv_qs_df_vs, combined_contig_file, path.join(visualization_output_dir, "contig_length_by_frequency_vs.png"))
+    plot_by_contig_length(checkv_qs_df_none, combined_contig_file, path.join(visualization_output_dir, "contig_length_by_frequency_none.png"))
     
     # Plot by contig
     plot_quality_by_contig(checkv_qs_df_dvf,checkv_qs_df_vs, checkv_qs_df_none, visualization_output_dir)

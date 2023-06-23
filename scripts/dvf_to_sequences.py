@@ -42,14 +42,12 @@ def main():
     parser.add_argument('--viral_combined_dvf', type=str, help='fasta file with all viral sequences output of this script')
     parser.add_argument('--min_score_dvf', type=float, help='minimum dvf score ')
     parser.add_argument('--max_pval_dvf', type=float, help='maximum pvalue for dvf hits ')
-    
     args = parser.parse_args()
-    
     
     fasta_file = args.fasta_file
     dvf_summary_file = args.dvf_summary_file
-    min_score_dvf = args.min_score_dvf
-    max_pval_dvf = args.max_pval_dvf
+    min_score_dvf = float(args.min_score_dvf)
+    max_pval_dvf = float(args.max_pval_dvf)
     viral_combined_dvf= args.viral_combined_dvf
 
     viral_contig_ids = get_matching_ids(dvf_summary_file, min_score_dvf, max_pval_dvf)

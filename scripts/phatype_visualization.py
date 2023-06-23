@@ -2,7 +2,8 @@ from Bio import Phylo
 import argparse
 from os import path
 import matplotlib.pyplot as plt
-from csv import reader
+from csv import reader, DictReader
+from random import randint
 
 # function calling 
 # "/projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/1_1_dvf/final-viral-combined.fa", "/projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/1_1_dvf/split", "/projects/arumugam/scratch/mnc390/virome_testing/virshimeome_pipeline_output/1_1_dvf/split/hello.fa"
@@ -58,25 +59,58 @@ def write_pie_lifestyle_plot(temperate, virulent, undefined, output_file):
 
     plt.savefig(output_file)
 
-def convert_newick_seq_ids():
-    with open(phagcn_taxonomy, "r") as taxonomy_file:
-        taxonomy_file_read = reader(taxonomy_file, delimiter=",")
-        next(taxonomy_file_read)
-        for row in taxonomy_file_read:
-            seq_id, _, taxnomy, score = row
-        
+def get_feature_frequency_dict(prediction_file):
+    feature_frequency_dict = {}
+    
+    with open(prediction_file, 'r') as file:
+        reader = DictReader(file)
+        for row in reader:
+            # Get the feature from the "Pred" column
+            feature = row["Pred"]
 
+            # If the feature is already in the dictionary, increment its frequency
+            if feature in feature_frequency_dict:
+                feature_frequency_dict[feature] += 1
+            # If the feature is not in the dictionary, add it with a frequency of 1
+            else:
+                feature_frequency_dict[feature] = 1
+
+    return feature_frequency_dict
+
+def write_pie_multi(dict_feature_frequency,output_file):
+    # Get the feature names and frequencies from the dictionary
+    feature_names = list(dict_feature_frequency.keys())
+    frequencies = list(dict_feature_frequency.values())
+
+    # Create a figure and axes
+    fig, ax = plt.subplots(figsize=(10, 10))
+    
+    colors = ['#%06X' % randint(0, 0xFFFFFF) for _ in range(len(dict_feature_frequency))]
+    # Generate the pie chart
+    ax.pie(frequencies, labels=feature_names, autopct='%1.1f%%',  colors=colors,  labeldistance=1.1, pctdistance=0.85)
+
+    # Set the aspect ratio to be equal so that pie is drawn as a circle
+    ax.axis('equal')
+
+    # Save the pie chart to the output file
+    plt.savefig(output_file)
 
 def main():
-    
     parser = argparse.ArgumentParser()
-    parser.add_argument('--phatyp_prediction_file', type=str, help='phatyp_prediction_file')
+    parser.add_argument('--phatype_prediction_file', type=str, help='phatyp_prediction_file', default="")
+    parser.add_argument('--host_prediction_file', type=str, help='host_prediction_file')
     parser.add_argument('--output_file', type=str, help='data_vizualization_dir')
     args = parser.parse_args()
     
-    phatyp_prediction_file = args.phatyp_prediction_file
     output_file = args.output_file
+    host_prediction_file = args.host_prediction_file
     
-    temperate, virulent, undefined = get_phage_lifestyle_number(phatyp_prediction_file)
-    write_pie_lifestyle_plot(temperate, virulent, undefined, output_file)
-
+    phatype_prediction_file = args.phatype_prediction_file
+    if phatype_prediction_file != "":
+        temperate, virulent, undefined = get_phage_lifestyle_number(phatype_prediction_file)
+        write_pie_lifestyle_plot(temperate, virulent, undefined, output_file)
+    if host_prediction_file != "":
+        dict_feature_frequency = get_feature_frequency_dict(host_prediction_file)
+        write_pie_multi(dict_feature_frequency, output_file)
+if __name__ == "__main__":
+        main()

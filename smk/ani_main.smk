@@ -14,6 +14,8 @@ include: 'main_config_parser.smk'
 from os import path, mkdir
 import glob
 from csv import reader
+from itertools import groupby
+
 
 #################
 ##  Functions  ##
@@ -50,13 +52,13 @@ available_threads = workflow.cores
 # Contig selection (custom script & virsorter2)
 vs_db_dir = path.join(virshimeome_dir, "data", "vs2_db")
 circular = config["circular"]
-min_contig_length = config["min_contig_length"]
-max_contig_length = config["max_contig_length"]
+min_contig_length = int(config["min_contig_length"])
+max_contig_length = int(config["max_contig_length"])
 min_score_vir_recognition = config["min_score_vir_recognition"]
 
 # dvf contig selection
-min_score_dvf = config["min_score_dvf"]
-max_pval_dvf = config["max_pval_dvf"]
+min_score_dvf = float(config["min_score_dvf"])
+max_pval_dvf = float(config["max_pval_dvf"])
 
 # Checkv
 checkv_db_dir = path.join(virshimeome_dir, "data", "checkv_db")
@@ -78,6 +80,7 @@ subdirs = ["1_1_vs", "1_1_dvf", "0_filtered_sequences"]
 all_dirs = subdirs + ["2_checkv", "4_alignment", "3_checkm", "5_1_contig_lengths","5_2_viral_otus", "6_0_gene_calls", "6_1_all_against_all_search", "7_0_clustering", "8_0_identification", "9_0_distance", "data_visualization"]
 make_dirs(path.join(output_dir, step_dir) for step_dir in all_dirs)
 make_dirs([path.join(output_dir, "8_0_identification", sub_dir) for sub_dir in subdirs])
+make_dirs([path.join(output_dir, "9_0_distance", sub_dir) for sub_dir in subdirs])
 graph_filenames = ["circular_quality_absolute_bar.png", "contig_length_frequency.png", "circular_quality_percentage_bar.png", "contig_quality_boxplot.png"]
 
 #############
@@ -178,7 +181,7 @@ rule all:
 ###########################
 ##  fasta concatenation  ##
 ###########################
-rule combine_sequence_files:
+rule combine_sequence_files: # TODO This can be done in two in bash, but it works 
     """
     Runs a python instance that selects fasta files with a minimum amount of bases present in each file 
     assuming ech file contains one contig. 
@@ -379,7 +382,7 @@ rule deep_vir_finder:
     shell:
         """
         outdir=$(dirname {output.dvf_summary})        
-        mkdir -p $outdir"
+        mkdir -p $outdir
         python {params.dvf_script} \
             -i {input.sequence_files} \
             -c {threads} \
@@ -404,7 +407,7 @@ rule convert_dvf_results_to_sequences:
             --dvf_summary_file {input.dvf_summary}
             --viral_combined_dvf {output.viral_combined_dvf} \
             --min_score_dvf {params.min_score_dvf} \
-            --max_pval_dvf {params.max_pval_dvf}  
+            --max_pval_dvf {params.max_pval_dvf} 
         
         """
 
@@ -629,7 +632,7 @@ rule all_against_all_fasta36:
 
 rule phabox_identification:
     input:
-        contig_file = "{main_dir}/{type}/final-viral-combined.fa",
+        contig_file = "{main_dir}/2_checkv/{type}/viruses.fna",
     output:
         out_file = "{main_dir}/8_0_identification/{type}/blast_results.tab"
     params: 
@@ -640,7 +643,6 @@ rule phabox_identification:
         parameter_dir = path.join(virshimeome_dir, "data", "phabox_db", "parameters")
     conda:
         path.join(virshimeome_dir, "envs", "phabox.yml") # Conda environment has a non-existent conflict with blast > 2.10.1, which causes problems
-        #"/home/mnc390/anaconda3/envs/phabox"
     threads:
         20
     shell:
@@ -653,7 +655,8 @@ rule phabox_identification:
             --rootpth {params.outdir} \
             --out output/ \
             --dbdir {params.database_dir} \
-            --parampth {params.parameter_dir}
+            --parampth {params.parameter_dir} \
+            --reject 0 
 
          {params.phabox_script} \
             --threads {threads} \
@@ -661,7 +664,9 @@ rule phabox_identification:
             --rootpth {params.outdir} \
             --out output/ \
             --dbdir {params.database_dir} \
-            --parampth {params.parameter_dir}
+            --parampth {params.parameter_dir} \
+            --reject 0 
+
         
         """
 
