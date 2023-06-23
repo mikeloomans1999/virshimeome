@@ -135,10 +135,10 @@ rule all:
             ),
 
         # CheckM takes a long time. 
-        # expand("{main_dir}/3_checkm/{type}/quality_summary.tsv", 
-        #     main_dir=output_dir,
-        #     type=subdirs
-        #     ),
+        expand("{main_dir}/3_checkm/{type}/quality_summary.tsv", 
+            main_dir=output_dir,
+            type=subdirs
+            ),
         
         # vOTU clutsering(script)
         # expand("{main_dir}/5_1_contig_lengths/{type}/contigs.all.lengths",
@@ -151,20 +151,17 @@ rule all:
         #     type="1_1_dvf"
         #     ),
 
-        # # gene calling and comparison (prodigal)
-        # expand("{main_dir}/6_0_gene_calls/{type}/vOTUs.gbk",
-        #     main_dir = output_dir,
-        #     type="1_1_dvf"
-        #     ),
+        # gene calling and comparison (prodigal)
+        expand("{main_dir}/6_0_gene_calls/{type}/vOTUs.faa",
+            main_dir = output_dir,
+            type="1_1_dvf"
+            ),
 
         # Sequence identification (phabox)
-        # expand("{main_dir}/8_0_identification/{type}/blast_results.tab",
-        #     main_dir=output_dir,
-        #     type="1_1_dvf"
-        #     ),
-
-       
-
+        expand("{main_dir}/8_0_identification/{type}/blast_results.tab",
+            main_dir=output_dir,
+            type="1_1_dvf"
+            ),
 
         # Distance matrix (alfpy, euclid)
         expand("{main_dir}/9_0_distance/{type}/distance_euclid.mat",
@@ -633,6 +630,7 @@ rule all_against_all_fasta36:
 rule phabox_identification:
     input:
         contig_file = "{main_dir}/2_checkv/{type}/viruses.fna",
+        protein_translations = "{main_dir}/6_0_gene_calls/{type}/vOTUs.faa"
     output:
         out_file = "{main_dir}/8_0_identification/{type}/blast_results.tab"
     params: 
@@ -656,6 +654,7 @@ rule phabox_identification:
             --out output/ \
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
+            --protein {input.protein_translations} \
             --reject 0 
 
          {params.phabox_script} \
@@ -665,6 +664,7 @@ rule phabox_identification:
             --out output/ \
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
+            --protein {input.protein_translations} \
             --reject 0 
 
         
@@ -745,4 +745,3 @@ rule data_visualization:
         
         Rscript {params.visualizaton_script} 
         """
-

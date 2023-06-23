@@ -17,17 +17,18 @@ def get_matching_ids(dvf_summary_file, min_score_dvf, max_pval_dvf):
                 viral_contig_ids.add(">" + seq_id)
     return viral_contig_ids
 
-def combine__seqids_in_file(viral_combined_dvf,viral_contig_ids,fasta_file ):
-    
-    def read_fasta_file(fasta_file):
-        # https://www.biostars.org/p/710/#383479
-        with open(fasta_file, 'rb') as fasta_file_read:
-            faiter = (x[1] for x in groupby(fasta_file_read, lambda line: str(line, 'utf-8')[0] == ">"))
-            for header in faiter:
-                seq_id = str(header.__next__(), 'utf-8').replace("\n", "")
-                seq = "".join(str(s, 'utf-8').strip() for s in faiter.__next__()) + "\n"
-                yield seq_id, seq
+def read_fasta_file(fasta_file):
+    " Returns sequence ID and sequence in list format. "
+    # https://www.biostars.org/p/710/#383479
+    with open(fasta_file, 'rb') as fasta_file_read:
+        faiter = (x[1] for x in groupby(fasta_file_read, lambda line: str(line, 'utf-8')[0] == ">"))
+        for header in faiter:
+            seq_id = str(header.__next__(), 'utf-8').replace("\n", "")
+            seq = "".join(str(s, 'utf-8').strip() for s in faiter.__next__()) + "\n"
+            yield seq_id, seq
                 
+                
+def combine__seqids_in_file(viral_combined_dvf,viral_contig_ids,fasta_file ):   
     # Write viral contigs to file.                 
     with open(viral_combined_dvf, "a") as dvf_viral_contig_file:
         for seq_id, seq in read_fasta_file(fasta_file):
