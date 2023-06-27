@@ -637,7 +637,7 @@ rule phagcn_taxonomy_prediction:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
             --protein {input.protein_translations} \
-            --reject 0 
+            --reject 0.2
 
          {params.phagcn_script} \
             --threads {threads} \
@@ -647,7 +647,7 @@ rule phagcn_taxonomy_prediction:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
             --protein {input.protein_translations} \
-            --reject 0 
+            --reject 0.2
         """
 
 rule cherry_host_prediction:
@@ -678,7 +678,7 @@ rule cherry_host_prediction:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
             --protein {input.protein_translations} \
-            --reject 0 
+            --reject 0.2
 
          {params.cherry_script} \
             --threads {threads} \
@@ -688,7 +688,7 @@ rule cherry_host_prediction:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
             --protein {input.protein_translations} \
-            --reject 0 
+            --reject 0.2
         """
 
 
@@ -720,7 +720,7 @@ rule phage_lifestyle_prediction:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
             --protein {input.protein_translations} \
-            --reject 0 
+            --reject 0.2
 
          {params.phatyp_script} \
             --threads {threads} \
@@ -730,7 +730,7 @@ rule phage_lifestyle_prediction:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
             --protein {input.protein_translations} \
-            --reject 0 
+            --reject 0.2
         """
 
 rule euclid_distance_calculation:
