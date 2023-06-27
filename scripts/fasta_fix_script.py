@@ -1,6 +1,6 @@
 import argparse
 
-def parse_fasta(file_path):
+def parse_broken_fasta(file_path):
     fasta_dict = {}
     curr_seq = ""
     curr_header = ""
@@ -31,7 +31,7 @@ def main():
     fasta_file_in = args.input
     fasta_file_out = args.output
 
-    fasta_dict = parse_fasta(fasta_file_in)
+    fasta_dict = parse_broken_fasta(fasta_file_in)
     write_fasta(fasta_file_out, fasta_dict)
 
 if __name__ == "__main__":

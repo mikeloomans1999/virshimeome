@@ -25,7 +25,7 @@ min_contig_length: 2000
 min_score_vir_recognition: 0.5
 
 # DVF
-min_score_dvf: 0.7
+min_score_dvf: 0.70
 max_pval_dvf: 0.05
 
 # Read to contig alignment (BWA)

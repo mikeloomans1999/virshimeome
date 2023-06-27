@@ -699,25 +699,6 @@ rule euclid_distance_calculation:
         sed -i '1d' {output.distance_matrix}
         """
 
-
-
-rule tree_creation:
-    input:
-        fasta_file = "{main_dir}/2_checkv/{type}/final-viral-combined.fa"
-    output:
-        tree_file = "{main_dir}/9_0_distance/{type}_tree.newick"
-    params:
-        spam_script = path.join(".", virshimeome_dir, "multi-SpaM", "bin", "multi-SpaM")
-    threads:
-        10 
-    shell:
-        """
-        {params.spam_script} \
-        -t {threads} \
-        -i {input.fasta_file} \
-        -o {output.tree_file}
-        """
-
 rule data_visualization:
     input:
         checkv_quality_summary = expand("{main_dir}/2_checkv/{type}/quality_summary.tsv",

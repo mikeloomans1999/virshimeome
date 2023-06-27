@@ -77,18 +77,41 @@ def get_feature_frequency_dict(prediction_file):
 
     return feature_frequency_dict
 
+def calculate_other(feature_names, frequencies):
+    total = sum(frequencies)
+    other_frequency = 0
+    pop_n = 0 
+    other_frequencies = frequencies.copy()
+    freq_threshold = total * 0.02
+    print(freq_threshold)
+    for index, frequency in enumerate(frequencies):
+        if frequency < freq_threshold:
+            feature_names.pop(index - pop_n)
+            other_frequencies.pop(index - pop_n)
+            pop_n += 1
+            other_frequency += frequency
+    return feature_names, other_frequencies, other_frequency
+    
 def write_pie_multi(dict_feature_frequency,output_file):
     # Get the feature names and frequencies from the dictionary
     feature_names = list(dict_feature_frequency.keys())
     frequencies = list(dict_feature_frequency.values())
 
+    # Merge uncommon features into "other"
+    feature_names, frequencies, other_frequency = calculate_other(feature_names, frequencies)
+    if other_frequency > 0:
+        feature_names.append("other")
+        frequencies.append(other_frequency)
+    
+    feature_names_absolute_values_comment = [feature_name + f"({frequencies[index]})" for index, feature_name in enumerate(feature_names)]
+    
     # Create a figure and axes
     fig, ax = plt.subplots(figsize=(10, 10))
     
     colors = ['#%06X' % randint(0, 0xFFFFFF) for _ in range(len(dict_feature_frequency))]
     # Generate the pie chart
-    ax.pie(frequencies, labels=feature_names, autopct='%1.1f%%',  colors=colors,  labeldistance=1.1, pctdistance=0.85)
-
+    ax.pie(frequencies, labels=feature_names_absolute_values_comment, autopct='%1.1f%%',  colors=colors,  labeldistance=1.1, pctdistance=0.85)
+    fig.tight_layout(pad=5)
     # Set the aspect ratio to be equal so that pie is drawn as a circle
     ax.axis('equal')
 

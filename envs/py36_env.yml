@@ -151,4 +151,5 @@ dependencies:
   - zstd=1.5.2=h3eb15da_6
   - pip:
       - networkx==3.1
+      - scipy==1.10.1
 prefix: /home/mnc390/anaconda3/envs/py36_env

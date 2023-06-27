@@ -4,7 +4,6 @@ import random
 import numpy as np
 import pandas  as pd
 from scipy.cluster.hierarchy import dendrogram, linkage, leaves_list
-from scipy.cluster import hierarchy
 from scipy.spatial.distance import squareform
 
 import matplotlib as mpl
@@ -49,65 +48,49 @@ def plot_dendrogram(seq_ids, distance_matrix, outfile):
     # Save the plot
     plt.savefig(outfile)
     
-    
-def plot_colorful_dendrogram(seq_ids, distance_matrix, outfile, feature_dict):
-    
-    # Add color to lineages
-    lineage_colors = []
-    unique_features = set(feature_dict.values())
-    unique_features.add("unknown")
-    unique_features = list(unique_features)
-    
-    fig, ax = plt.subplots(figsize=(8, 8))
-    linked_clustering = linkage(distance_matrix, method='complete')
-    id_list_dendrogram = leaves_list(linked_clustering).tolist()
-    
-    # Get a list of color names
-    
-    # Convert colors to string representation
-    color_names = list(mcolors.CSS4_COLORS.keys())    
-    # Select the colors
-    color_strings = color_names[:(len(seq_ids)+1)]
-    
-    colors = ["b"]*(2*len(seq_ids)-1)
-    
-    for index, seq_id in enumerate(seq_ids):
-        # Get feature
-        if seq_id in feature_dict:
-            feature = feature_dict[seq_id]
-        else:
-            feature = "unknown"
-        # Get color
-        color = color_strings[unique_features.index(feature)]
-        # Store color
-        colors[id_list_dendrogram.index(index)] = color
-    
-    
-    print(len(seq_ids), "/", len(lineage_colors))
-    dendrogram(linked_clustering, orientation='top', labels=seq_ids,color_threshold=0.2, leaf_font_size=12, link_color_func=lambda k: colors[k])
-    
-    # Set the axis labels and title
-    ax.set_xlabel('Species')
-    ax.set_ylabel('Distance')
-    ax.set_title('Dendrogram')
+def plot_colorful_dendrogram(df, outfile, feature_dict):
+    # Create a list of colors for each feature
+    unique_features = sorted(set(feature_dict.values()))
+    color_map = plt.cm.get_cmap('tab10', len(unique_features))
+    colors = [color_map(i) for i in range(len(unique_features))]
+    feature_colors = {feature: color for feature, color in zip(unique_features, colors)}
 
-    # Adjust the position and rotation of the labels
-    plt.xticks(rotation=90, ha='center')
+    # Perform hierarchical clustering on the DataFrame
+    df = df[list(feature_dict.keys())]
+    linked = linkage(df.transpose(), method='average')
 
-    # Remove the spines
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
+    # Create the dendrogram plot
+    plt.figure(figsize=(8, 6))
+    dendrogram(linked, orientation='top', labels=df.columns, color_threshold = 0, link_color_func = lambda k: 'black' )
+
+    # Color the branches based on the feature_dict feature
+    ax = plt.gca()
+    xlbls = ax.get_xmajorticklabels()
+    for lbl in xlbls:
+        sample = lbl.get_text()
+        feature = feature_dict.get(sample)
+        color = feature_colors.get(feature, 'gray')
+        lbl.set_color(color)
+
 
     # Create a legend
-    # handles = [plt.Line2D([0], [0], color=color, lw=2) for color in lineage_colors.values()]
-    # labels = lineage_colors.keys()
-    # ax.legend(handles, labels, loc='upper right')
-    
-    # Save the plot
+    unique_families = sorted(set(feature_dict.values()))
+    color_map = plt.cm.get_cmap('tab10', len(unique_families))
+    family_colors = {family: color_map(i) for i, family in enumerate(unique_families)}
+    unique_families_frequency = [f"{family} ({list((feature_dict.values())).count(family)})" for family in unique_families]
+    handles = [plt.Line2D([0], [0], color=color, lw=2, linestyle='--') for color in family_colors.values()]
+    labels = unique_families_frequency
+    plt.legend(handles, labels, loc='upper right')
+
+    # Set the axis labels and title
+    plt.xlabel('MAGs')
+    plt.ylabel('Distance')
+    plt.title('Dendrogram with feature_dict-Based Coloring')
+
+    # Show the plot
     plt.savefig(outfile)
-    
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--matrix_file', type=str, help='Matrix file in PHYLIP format')
@@ -118,23 +101,22 @@ def main():
     matrix_file = args.matrix_file
     outfile = args.outfile
     feature_file = args.feature_file
-    
-    # Read distance matrix
-    # distance_matrix = np.loadtxt(matrix_file)
-    distance_matrix = np.array(np.loadtxt(matrix_file, delimiter = "\t", dtype=object)[:,1:], dtype=float)
-    print(distance_matrix.shape)
 
-    # Get sequence IDs
-    seq_ids = np.loadtxt(matrix_file, usecols=0, dtype=str).tolist()
-    print(len(seq_ids))
-    
-    condensed_matrix = squareform(distance_matrix)
-    
     if feature_file != "":    
+        pd_df_matrix = pd.DataFrame(pd.read_csv(matrix_file, sep="\t", index_col = 0))
         pd_df = pd.read_csv(feature_file)
         feature_dict = convert_two_arrays_to_dict(pd_df["Accession"], pd_df["Pred"])
-        plot_colorful_dendrogram(seq_ids, condensed_matrix, outfile, feature_dict)
+        plot_colorful_dendrogram(pd_df_matrix, outfile, feature_dict)
     else:
+        # Read distance matrix
+        distance_matrix = np.array(np.loadtxt(matrix_file, delimiter = "\t", dtype=object)[:,1:], dtype=float)
+        print(distance_matrix.shape)
+
+        # Get sequence IDs
+        seq_ids = np.loadtxt(matrix_file, usecols=0, dtype=str).tolist()
+        print(len(seq_ids))
+        
+        condensed_matrix = squareform(distance_matrix)
         # Perform hierarchical clustering using linkage
         plot_dendrogram(seq_ids, condensed_matrix, outfile)
 

@@ -41,8 +41,8 @@ def main():
     parser.add_argument('--fasta_file', type=str, help='file with all sequence in fasta format. ')
     parser.add_argument('--dvf_summary_file', type=str, help='output of deepvirfinder summary ')
     parser.add_argument('--viral_combined_dvf', type=str, help='fasta file with all viral sequences output of this script')
-    parser.add_argument('--min_score_dvf', type=float, help='minimum dvf score ')
-    parser.add_argument('--max_pval_dvf', type=float, help='maximum pvalue for dvf hits ')
+    parser.add_argument('--min_score_dvf', type=str, help='minimum dvf score ')
+    parser.add_argument('--max_pval_dvf', type=str, help='maximum pvalue for dvf hits ')
     args = parser.parse_args()
     
     fasta_file = args.fasta_file

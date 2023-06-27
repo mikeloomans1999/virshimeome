@@ -6,7 +6,7 @@ import numpy as np
 from os import path
 from Bio import SeqIO
 import argparse
-
+from scipy.stats import mannwhitneyu
 
     
 #################
@@ -86,6 +86,17 @@ def plot_by_contig_length(checkv_qs_df, combined_contig_file, output_file):
     print("Percentage of contigs that are of viral origin", len(contig_lengths) / len_combined_contig_sequences* 100, "%") 
     print("Median:", np.median(contig_lengths))
 
+def significance_stars(p_value):
+    significance = ""
+    if p_value < 0.05:
+        if p_value < 0.001:
+            significance = '***'
+        elif p_value < 0.01:
+            significance = '**'
+        elif p_value < 0.05:
+            significance = '*'
+    return significance 
+    
 def plot_quality_by_contig(checkv_qs_df_dvf, checkv_qs_df_vs, checkv_qs_df_none, outdir):
     ##############################
     ##  Quality by contig type  ##
@@ -121,7 +132,6 @@ def plot_quality_by_contig(checkv_qs_df_dvf, checkv_qs_df_vs, checkv_qs_df_none,
         bottom += weight_absolute
 
     plt.grid('on', color = 'gainsboro', axis = 'y', linestyle='--', zorder=3)
-     # Shrink current axis by 20%
     box = circular_absolute_axes.get_position()
     circular_absolute_axes.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     circular_absolute_axes.set_ylabel("frequency (n")
@@ -129,10 +139,42 @@ def plot_quality_by_contig(checkv_qs_df_dvf, checkv_qs_df_vs, checkv_qs_df_none,
     # Put a legend to the right of the current axis
     circular_absolute_axes.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     
+    # Perform pairwise Mann-Whitney U tests
+    p_values = []
+    for i in range(len(quality_types)-1):
+        for j in range(i+1, len(quality_types)):
+            group1 = absolute_weight_dict[quality_types[i]]
+            group2 = absolute_weight_dict[quality_types[j]]
+            _, p_value = mannwhitneyu(group1, group2, alternative='greater')
+            p_values.append(p_value)
+            print(f"{quality_types[i]}&{quality_types[j]}&{p_value}")
+            if p_value < 0.05:
+                significance = significance_stars(p_value)
+                y = max(group1.max(), group2.max())
+                plt.plot([i, j], [y, y], color='black', linewidth=1)
+                plt.text((i + j) / 2, y, significance, ha='center', va='bottom')
+            
+    print(p_values)
+    # Set the axis labels and title
+    circular_absolute_axes.set_xlabel('Contig Types')
+    circular_absolute_axes.set_ylabel('Frequency (n)')
+    circular_absolute_axes.set_title('Quality by Contig Type')
+
+    
     plt.savefig(path.join(outdir,"circular_quality_absolute_bar.png"))
 
 
+def quality_by_contig_percentage(checkv_qs_df_dvf, checkv_qs_df_vs, checkv_qs_df_none, outdir):
+    # DVF
+    quality_circ_dvf, quality_norm_dvf = quality_circular(checkv_qs_df=checkv_qs_df_dvf)
+    # VS
+    quality_circ_vs, quality_norm_vs = quality_circular(checkv_qs_df=checkv_qs_df_vs)
+    # None
+    quality_circ_none, quality_norm_none = quality_circular(checkv_qs_df=checkv_qs_df_none)
 
+    names = ["dvf circular", "vs2 circular", "raw"] #, "dvf linear", "vs2 linear"]
+    quality_types = ['Not-determined', 'Low-quality', 'Medium-quality', 'High-quality', 'Complete']
+    
     ###### PERCENTAGES #######
     # Circular
     quality_circ_dvf_perc = calculate_percentages(quality_circ_dvf, quality_types)
@@ -234,12 +276,12 @@ def main():
     plot_by_contig_length(checkv_qs_df_none, combined_contig_file, path.join(visualization_output_dir, "contig_length_by_frequency_none.png"))
     
     # Plot by contig
-    plot_quality_by_contig(checkv_qs_df_dvf,checkv_qs_df_vs, checkv_qs_df_none, visualization_output_dir)
+    plot_quality_by_contig(checkv_qs_df_dvf, checkv_qs_df_vs, checkv_qs_df_none, visualization_output_dir)
     
     # Quality by length
-    quality_by_length(checkv_qs_df_dvf, path.join(visualization_output_dir, "dvf_contig_quality_boxplot.png"))
-    quality_by_length(checkv_qs_df_vs, path.join(visualization_output_dir, "vs2_contig_quality_boxplot.png"))
-    quality_by_length(checkv_qs_df_none, path.join(visualization_output_dir, "none_contig_quality_boxplot.png"))
+    quality_by_length(checkv_qs_df_dvf, path.join(visualization_output_dir, "1_1_dvf_contig_quality_boxplot.png"))
+    quality_by_length(checkv_qs_df_vs, path.join(visualization_output_dir, "1_1_vs2_contig_quality_boxplot.png"))
+    quality_by_length(checkv_qs_df_none, path.join(visualization_output_dir, "0_filtered_sequences_contig_quality_boxplot.png"))
     
 if __name__ == "__main__":
     main()

@@ -12,7 +12,6 @@ def cluster_duplicates(fastani_out):
     with open(fastani_out, "r") as file:
         for line in file:
             id_1, id_2, score,_,_ = line.split("\t")
-
             if float(score) >= 99.9:
                 graph.add_edge(id_1, id_2, score=float(score))
 
@@ -48,7 +47,6 @@ def convert_set_to_file(set_input, output_file):
             new_file.write(f"{seq_id}\n")
 
 def main():
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--fastani_out', type=str, help='pairwise comparison average nucleotide identity ')
     parser.add_argument('--revised_seq_ids', type=str, help='output file with selected seq ids')
