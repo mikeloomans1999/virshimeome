@@ -1,11 +1,71 @@
-The virshimeome pipeline is a bioinformatics tool that enables the identification and analysis of viral contigs in metagenomic datasets. 
-The pipeline starts with the identification of viral contigs using the virsorter2 tool, which classifies contigs based on their similarity to viral genomes.
-The resulting viral contigs are then validated using checkV to ensure that they are of high quality and accurately represent viral genomes. 
-The next step involves mapping high quality reads to the identified viral contigs using samtools and msamtools, which allows for the calculation of the relative abundance of viral sequences in the metagenomic dataset. 
-The output of the pipeline provides valuable insights into the viral diversity and abundance in the studied metagenomic samples, which is essential for understanding the role of viruses in various environmental and clinical contexts.
 
+Setting up the initial conda environment:
+```console
+git clone https://github.com/mikeloomans1999/virshimeome
+cd virshimeome
+conda env create -f scripts/virshimeome.yml
+```
 
-# TODO LIST
-1. Get list of fasta files from contigs less than 500kb in length and circular. 
-2. Use a vir predictor method to get contigs that match. 
-3. Calculate relative abundance. 
+Configure the config files.
+Configuration for the dependencies config file, dependencies.yml.
+
+```
+######################
+# General settings
+######################
+local_dir: # Local directory for storing the results. 
+virshimeome_dir: # Local virshimeome directory
+
+download_memory: # In gigatbytes
+download_threads: # Number of threads available for downloads
+
+```
+
+Configuration for the pipeline execution, main.yml.
+```
+######################
+## General settings ##
+######################
+# Dirs
+PROJECT: # Project name
+working_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome
+local_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome
+virshimeome_dir: # Local virshimeome directory 
+hq_reads_dir: # Reads directory, not currently in use
+contig_dir: # parent directory of contigs/MAGs
+output_dir: # Your assigned output directory
+deep_vir_finder_dir: # Local DeepVirFinder directory
+# Resources 
+memory: # In gigabytes
+
+#####################
+##  Tool settings  ##
+#####################
+# Contig selection (custom script & virsorter2)
+circular: circular # Whether or not you want to filter for circular sequences or any other characteristics mentioned in the sequence identifier. 
+max_contig_length: 500000
+min_contig_length: 2000
+min_score_vir_recognition: 0.5
+
+# DVF
+min_score_dvf: 0.7
+max_pval_dvf: 0.05
+
+# Read to contig alignment (BWA)
+algorithm_bwa: mem # Currently not in use. 
+
+# Relative abundance (samtools & msamtools)
+min_length_alignment_abundance: 80  # Currently not in use. 
+ani_threshold: 99.9 # Percentage not decimal  # Currently not in use. 
+percentage_read_aligned_abundance: 80 # Percentage not decimal  # Currently not in use. 
+```
+
+Downloading all the databases
+```console
+snakemake --snakefile smk/dependencies.smk --configfile config/dependencies.yaml --use-conda
+```
+
+Run the pipeline, it is recommended to use the "-j" flag and specify multiple cores to use.
+```console
+snakemake --snakefile smk/main.smk --configfile config/main.yaml --use-conda
+```
