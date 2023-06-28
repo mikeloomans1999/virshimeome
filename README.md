@@ -69,3 +69,16 @@ Run the pipeline, it is recommended to use the "-j" flag and specify multiple co
 ```console
 snakemake --snakefile smk/main.smk --configfile config/main.yaml --use-conda
 ```
+Known issues:
+There is a nonexistent dependency clash when installing blast+ >2.10.1, earlier version are unable to run  blastn in redhat distros past version 8.1 due to the absence of the libsnl library. 
+To fix:
+```console
+conda activate phabox 
+wget https://anaconda.org/bioconda/blast/2.14.0/download/linux-64/blast-2.14.0-h7d5a4b4_1.tar.bz2 ./
+conda install blast-2.14.0-h7d5a4b4_1.tar.bz2
+```
+Run the pipeline in greedy mode if  there are any workload manager issues.
+```console
+snakemake --snakefile smk/main.smk --configfile config/main.yaml --use-conda --scheduler greedy
+```
+
