@@ -68,7 +68,7 @@ def analyze_fasta_file(fasta_file):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--fasta_file', type=str, help='fasta_file you want to analyze', default="")
-    parser.add_argument('--output_file', type=str, help='data_visualization directory where the figures are dumped.')
+    parser.add_argument('--output_file', type=str, help='output file for the figure.')
     args = parser.parse_args()
     
     fasta_file = args.fasta_file

@@ -19,7 +19,6 @@ print("  ")
 # Settings
 virshimeome_dir = config["virshimeome_dir"]
 env_dir = path.join(virshimeome_dir, "envs")
-local_dir = config["local_dir"]
 download_threads = config["download_threads"]
 download_memory = config["download_memory"]
 
@@ -163,9 +162,11 @@ rule checkm_db:
 rule dvf:
     output:
         "{main_dir}/DeepVirFinder/dvf.py"
+    params:
+        dvf_dir = path.join(virshimeome_dir,  "DeepVirFinder")
     shell:
         """
-        git clone https://github.com/jessieren/DeepVirFinder 
+        git clone https://github.com/jessieren/DeepVirFinder {dvf_dir}
         """
 
 rule markov_chain_clustering:

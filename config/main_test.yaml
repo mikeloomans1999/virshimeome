@@ -3,15 +3,10 @@
 ######################
 # Dirs
 PROJECT: test_main
-working_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome
-local_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome
 virshimeome_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome
-hq_reads_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome/reads
 contig_dir: /projects/arumugam/scratch/mjq180/Diet3_for_Mike 
-output_dir: /projects/arumugam/scratch/mnc390/virome_testing/ani_virshimeome_rerun
+output_dir: /projects/arumugam/scratch/mnc390/virome_testing/no_filter_virshimeome_pipeline_output
 deep_vir_finder_dir: /projects/arumugam/people/mnc390/virome_pipelines/virshimeome/DeepVirFinder
-# Resources 
-memory: 20 # In gigabytes
 
 #####################
 ##  Tool settings  ##
@@ -20,19 +15,18 @@ memory: 20 # In gigabytes
 circular: circular
 max_contig_length: 500000
 min_contig_length: 2000
-
-# VS2
 min_score_vir_recognition: 0.5
 
 # DVF
-min_score_dvf: 0.70
+min_score_dvf: 0.7
 max_pval_dvf: 0.05
 
 # Read to contig alignment (BWA)
 algorithm_bwa: mem
 # Add more options for bwa mapping after the program as a whole is working. 
 
-# Relative abundance (samtools & msamtools)
-min_length_alignment_abundance: 80
+# phabox
+prophage_reject: 0.2
+
+# ANI
 ani_threshold: 99.9 # Percentage not decimal
-percentage_read_aligned_abundance: 80 # Percentage not decimal

@@ -35,7 +35,6 @@ def make_dirs(abs_dir_list):
 # Input # 
 project_name=config["PROJECT"]
 virshimeome_dir=config["virshimeome_dir"]
-hq_reads_dir=directory(config["hq_reads_dir"]) # Unavailable
 main_contig_dir=config["contig_dir"]
 checkv_db=path.join(virshimeome_dir, "data", "checkv_db")
 checkm_db=path.join(virshimeome_dir, "data", "CheckM2_Database")
@@ -46,7 +45,6 @@ path_dvf_script = path.join(config["deep_vir_finder_dir"], "dvf.py")
 
 # Params #
 # Resources
-memory=config["memory"]
 available_threads = workflow.cores
 
 # Contig selection (custom script & virsorter2)
@@ -63,21 +61,17 @@ max_pval_dvf = config["max_pval_dvf"]
 # Checkv
 checkv_db_dir = path.join(virshimeome_dir, "data", "checkv_db")
 
-# Read to contig alignment (BWA)
-algorithm_bwa=config["algorithm_bwa"]
-
-# Relative abundaance (samtools & msamtools)
-min_length_alignment_abundance=config["min_length_alignment_abundance"]
+# ANI
 ani_threshold=config["ani_threshold"]
-percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
-# circular  yet to be determined if used. 
 
+# phabox
+prophage_reject = config["prophage_reject"]
 # Output #
 
 # Global output directory, sample specific output directory. 
 output_dir = config["output_dir"]
 subdirs = ["1_1_vs", "1_1_dvf", "0_filtered_sequences"]
-all_dirs = subdirs + ["2_checkv", "4_alignment", "3_checkm", "5_1_contig_lengths","5_2_viral_otus", "6_gene_calls", "7_0_clustering", "8_identification", "9_distance", "data_visualization"]
+all_dirs = subdirs + ["2_checkv", "4_alignment", "3_checkm","5_2_viral_otus", "6_gene_calls", "8_identification", "9_distance", "data_visualization"]
 make_dirs(path.join(output_dir, step_dir) for step_dir in all_dirs)
 make_dirs([path.join(output_dir, "8_identification", sub_dir) for sub_dir in subdirs])
 make_dirs([path.join(output_dir, "9_distance", sub_dir) for sub_dir in subdirs])
@@ -147,23 +141,23 @@ rule all:
             ),
         # Sequence identification (phabox)
 
-        # Phagcn Taxonomy preciction
-        # expand("{main_dir}/8_identification/{viral_predictor}/output/phagcn_prediction.csv",
-        #     main_dir=output_dir,
-        #     viral_predictor=subdirs
-        #     ),
-
+        # Phagcn Taxonomy prediction
+        expand("{main_dir}/8_identification/{viral_predictor}/output/phagcn_prediction.csv",
+            main_dir=output_dir,
+            viral_predictor=subdirs
+            ),
+        
         # phatype lifestyle prediction
-        # expand("{main_dir}/8_identification/{viral_predictor}/output/phatyp_prediction.csv",
-        #     main_dir=output_dir,
-        #     viral_predictor=subdirs
-        #     ),
+        expand("{main_dir}/8_identification/{viral_predictor}/output/phatyp_prediction.csv",
+            main_dir=output_dir,
+            viral_predictor=subdirs
+            ),
 
         # Cherry host prediction
-        # expand("{main_dir}/8_identification/{viral_predictor}/output/cherry_prediction.csv",
-        #     main_dir=output_dir,
-        #     viral_predictor=subdirs
-        #     ),
+        expand("{main_dir}/8_identification/{viral_predictor}/output/cherry_prediction.csv",
+            main_dir=output_dir,
+            viral_predictor=subdirs
+            ),
 
         # Distance matrix (alfpy, euclid)
         expand("{main_dir}/9_distance/{viral_predictor}/distance_euclid.mat",
@@ -413,8 +407,7 @@ rule convert_dvf_results_to_sequences:
 
 ##############
 ##  checkv  ##
-##############
-# TODO check usage without contamination step. 
+##############  
 rule checkv:
     """
     Runs CheckV which constructs quality reports of the viral prediction step, that classified the contigs. 
@@ -519,86 +512,9 @@ rule alignment:
             -out=blast8
         """
 
-#######################
-##  vOTU clustering  ##
-#######################
-rule contig_lengths:
-    input:
-        contigs = "{main_dir}/{viral_predictor}/final-viral-combined.fa",
-        aligned_contigs = "{main_dir}/4_alignment/{viral_predictor}/contigs_aligned.blat"
-    output:
-        contig_lengths = "{main_dir}/5_1_contig_lengths/{viral_predictor}/contigs.all.lengths"
-    params:
-        f2s_script = path.join(script_dir, "f2s"),
-        seqlengths_script =path.join(script_dir, "seqlengths"),
-        joincol_script = path.join(script_dir, "joincol"),
-        hashsums_script = path.join(script_dir, "hashsums")
-    threads:
-        1
-    shell:
-        """
-        cat {input.contigs} \
-            | perl {params.f2s_script} \
-            | perl {params.seqlengths_script} \
-            | perl {params.joincol_script} <(cat {input.aligned_contigs} \
-            | awk '{{if ($1 == $2) print $1 "\t" $12}}' \
-            | perl {params.hashsums_script} \
-            | tail -n +2) > {output.contig_lengths}
-        """
-
-rule viral_otu_clustering:
-    input:
-        contigs = "{main_dir}/{viral_predictor}/final-viral-combined.fa",
-        aligned_contigs = "{main_dir}/4_alignment/{viral_predictor}/contigs_aligned.blat",
-        contig_lengths = "{main_dir}/5_1_contig_lengths/{viral_predictor}/contigs.all.lengths"
-    output:
-        viral_otus_table = "{main_dir}/5_2_viral_otus/{viral_predictor}/vOTUs.tsv",
-    params:
-        joincol_script = path.join(script_dir, "joincol"),
-        hashsums_script = path.join(script_dir, "hashsums")
-    threads:
-        1
-    shell:
-        """
-        cut -f1,2,12 {input.aligned_contigs} \
-            | perl {params.hashsums_script} \
-            | tail -n +2 \
-            | perl {params.joincol_script} {input.contig_lengths} 2 \
-            | sort -k4,4nr -k1,1 \
-            | awk '{{if ($3/$NF >= .90) print $1 "\t" $2}}' \
-            | perl -lane 'unless (exists($clusters{{$F[1]}})) {{$clusters{{$F[1]}} = $F[0]; print "$F[1]\t$F[0]"}}' \
-            > {output.viral_otus_table}
-        """
-
-rule viral_otu_cluster_sequences:
-    input:
-        contigs = "{main_dir}/{viral_predictor}/final-viral-combined.fa",
-        viral_otus_table = "{main_dir}/5_2_viral_otus/{viral_predictor}/vOTUs.tsv",
-    output:
-        viral_otus_fna = "{main_dir}/5_2_viral_otus/{viral_predictor}/vOTUs.fna" # Check for FASTA formatting. 
-    params:
-        f2s_script = path.join(script_dir, "f2s"),
-        joincol_script = path.join(script_dir, "joincol"),
-        fasta_fix_script = path.join(script_dir, "fasta_fix_script.py")
-    threads:
-        1
-    shell:
-        """
-        cat {input.contigs} \
-            | perl {params.f2s_script} \
-            | perl {params.joincol_script} <(cut -f2 {input.viral_otus_table}) \
-            | awk '$NF == 1' \
-            | cut -f1,2 > s2f \
-            > {output.viral_otus_fna}_temp
-        
-        cp {output.viral_otus_fna}_temp {output.viral_otus_fna}
-
-        python3 {params.fasta_fix_script} --input {output.viral_otus_fna}_temp --output {output.viral_otus_fna}
-        """
-
 rule gene_calling_protein_comparison:
     input:
-        viral_otus_fna = "{main_dir}/5_2_viral_otus/{viral_predictor}/vOTUs.fna"
+        viral_otus_fna = "{main_dir}/{viral_predictor}/final-viral-combined.fa"
     output:
         gene_calls = "{main_dir}/6_gene_calls/{viral_predictor}/vOTUs.gbk",
         protein_translations = "{main_dir}/6_gene_calls/{viral_predictor}/vOTUs.faa"
@@ -620,7 +536,8 @@ rule phagcn_taxonomy_prediction:
         outdir = "{main_dir}/8_identification/{viral_predictor}",
         phagcn_script = path.join(virshimeome_dir, "PhaBOX", "phagcn_single.py"),
         database_dir = path.join(virshimeome_dir, "data", "phabox_db", "database"),
-        parameter_dir = path.join(virshimeome_dir, "data", "phabox_db", "parameters")
+        parameter_dir = path.join(virshimeome_dir, "data", "phabox_db", "parameters"),
+        reject = prophage_reject
     conda:
         path.join(virshimeome_dir, "envs", "phabox.yml") # Conda environment has a non-existent conflict with blast > 2.10.1, which causes problems
     threads:
@@ -637,7 +554,7 @@ rule phagcn_taxonomy_prediction:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
             --protein {input.protein_translations} \
-            --reject 0.2
+            --reject {params.reject}
 
          {params.phagcn_script} \
             --threads {threads} \
@@ -647,7 +564,7 @@ rule phagcn_taxonomy_prediction:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
             --protein {input.protein_translations} \
-            --reject 0.2
+            --reject {params.reject}
         """
 
 rule cherry_host_prediction:
@@ -661,7 +578,8 @@ rule cherry_host_prediction:
         outdir = "{main_dir}/8_identification/{viral_predictor}",
         cherry_script = path.join(virshimeome_dir, "PhaBOX", "cherry_single.py"),
         database_dir = path.join(virshimeome_dir, "data", "phabox_db", "database"),
-        parameter_dir = path.join(virshimeome_dir, "data", "phabox_db", "parameters")
+        parameter_dir = path.join(virshimeome_dir, "data", "phabox_db", "parameters"),
+        reject = prophage_reject
     conda:
         path.join(virshimeome_dir, "envs", "phabox.yml") # Conda environment has a non-existent conflict with blast > 2.10.1, which causes problems
     threads:
@@ -678,7 +596,7 @@ rule cherry_host_prediction:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
             --protein {input.protein_translations} \
-            --reject 0.2
+            --reject {params.reject}
 
          {params.cherry_script} \
             --threads {threads} \
@@ -688,7 +606,7 @@ rule cherry_host_prediction:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
             --protein {input.protein_translations} \
-            --reject 0.2
+            --reject {params.reject}
         """
 
 
@@ -697,13 +615,14 @@ rule phage_lifestyle_prediction:
         contig_file = "{main_dir}/2_checkv/{viral_predictor}/viruses.fna",
         protein_translations = "{main_dir}/6_gene_calls/{viral_predictor}/vOTUs.faa"
     output:
-        out_file = "{main_dir}/8_identification/{viral_predictor}/phatyp_prediction.csv"
+        out_file = "{main_dir}/8_identification/{viral_predictor}/output/phatyp_prediction.csv"
     params: 
         current_viral_predictor = "{viral_predictor}",
         outdir = "{main_dir}/8_identification/{viral_predictor}",
         phatyp_script = path.join(virshimeome_dir, "PhaBOX", "phatyp_single.py"),
         database_dir = path.join(virshimeome_dir, "data", "phabox_db", "database"),
-        parameter_dir = path.join(virshimeome_dir, "data", "phabox_db", "parameters")
+        parameter_dir = path.join(virshimeome_dir, "data", "phabox_db", "parameters"),
+        reject = prophage_reject
     conda:
         path.join(virshimeome_dir, "envs", "phabox.yml") # Conda environment has a non-existent conflict with blast > 2.10.1, which causes problems
     threads:
@@ -720,7 +639,7 @@ rule phage_lifestyle_prediction:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
             --protein {input.protein_translations} \
-            --reject 0.2
+            --reject {params.reject}
 
          {params.phatyp_script} \
             --threads {threads} \
@@ -730,7 +649,7 @@ rule phage_lifestyle_prediction:
             --dbdir {params.database_dir} \
             --parampth {params.parameter_dir} \
             --protein {input.protein_translations} \
-            --reject 0.2
+            --reject {params.reject}
         """
 
 rule euclid_distance_calculation:

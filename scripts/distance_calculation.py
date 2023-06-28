@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 from alfpy.utils import seqrecords
 from alfpy import word_distance
@@ -37,7 +36,7 @@ def main():
     seq_records = get_seq_record(fasta_file)
     matrix = calc_matrix(seq_records, distance_metric)
     id_list = matrix.id_list
-    norm_matrix = matrix.normalize()
+    norm_matrix = matrix.normalize() # don't touch
     np_matrix = matrix.data
     
     pd_df_matrix = pd.DataFrame(data=np_matrix, index=id_list, columns=None, dtype=float)

@@ -24,14 +24,6 @@ if config['PROJECT'] is None:
 else:
     project_id = config['PROJECT']
 
-# WORKING DIR PATH
-if config['working_dir'] is None:
-    print('ERROR in ', config_path, ': working_dir variable is empty. Please, complete ', config_path)
-elif path.exists(config['working_dir']) is False:
-    print('WARNING in ', config_path, ': working_dir path does not exit.')
-    working_dir = config['working_dir']
-else:
-    working_dir = config['working_dir']
 # VIRSHIMEOME DIR
 if config['virshimeome_dir'] is None:
     print('ERROR in ', config_path, ': virshimeome_dir variable is empty. Please, complete ', config_path)
@@ -40,22 +32,6 @@ elif path.exists(config['virshimeome_dir']) is False:
     virshimeome_dir = config['virshimeome_dir']
 else:
     virshimeome_dir = config['virshimeome_dir']
-
-
-# HIGH QUALITY READS DIR
-if config['hq_reads_dir'] is None:
-    print('ERROR in ', config_path, ': hq_reads_dir variable is empty. Please, complete ', config_path)
-elif path.exists(config['hq_reads_dir']) is False:
-    print('WARNING in ', config_path, ': hq_reads_dir path does not exit.')
-    hq_reads_dir = config['hq_reads_dir']
-else:
-    hq_reads_dir = config['hq_reads_dir']
-
-# LOCAL DIR
-if config['local_dir'] is None:
-    print('ERROR in ', config_path, ': local_dir variable is empty. Please, complete ', config_path)
-else:
-    local_dir = config['local_dir']
 
 # MAX CONTIG LENGTH
 if config['max_contig_length'] is None:
@@ -127,36 +103,6 @@ elif path.exists(config['output_dir']) is False:
 else:
     output_dir = config['output_dir']
 
-# BWA ALGORITHM
-if config['algorithm_bwa'] is None:
-    print('ERROR in ', config_path, ': the algorithm_bwa variable is empty. Please, complete')
-    algorithm_bwa=config["algorithm_bwa"]
-elif config["algorithm_bwa"] not in ["ont2d", "intractg","sr","spliced", "mem"]:
-    print('ERROR in ', config_path, ': the algorithm_bwa variable does not contain an available algorithm choose from: "ont2d", "intractg","sr","spliced", "mem" ')
-    algorithm_bwa=config["algorithm_bwa"]
-else:
-    algorithm_bwa=config["algorithm_bwa"]
-
-# MEMORY ALLOCATION
-if config["memory"] is None:
-    print('ERROR in ', config_path, ': the memory variable is empty. Please, complete')
-    memory=config["memory"]
-elif type(config["memory"]) != int:
-    print('ERROR in ', config_path, ': the memory is not an interger. Please, complete', config_path)
-    memory=config["memory"]
-else:
-    memory=config["memory"]
-
-# RELATIVE ABUNDANCE MIN LENGTH READ ALIGNMENT
-if config["min_length_alignment_abundance"] is None:
-    print('ERROR in ', config_path, ': the min_length_alignment_abundance variable is empty. Please, complete')
-    min_length_alignment_abundance=config["min_length_alignment_abundance"]
-elif type(config["min_length_alignment_abundance"]) != int:
-    print('ERROR in ', config_path, ': the min_length_alignment_abundance is not an interger. Please, complete', config_path)
-    min_length_alignment_abundance=config["min_length_alignment_abundance"]
-else:
-    min_length_alignment_abundance=config["min_length_alignment_abundance"]
-
 # ANI THRESHOLD
 if config["ani_threshold"] is None:
     print('ERROR in ', config_path, ': the ani_threshold variable is empty. Please, complete')
@@ -167,15 +113,15 @@ elif type(config["ani_threshold"]) != int and type(config["ani_threshold"]) != f
 else:
     ani_threshold=config["ani_threshold"]
 
-# PERCENTAGE OF READ ALIGNED FOR ABUNDANCE
-if config["percentage_read_aligned_abundance"] is None:
-    print('ERROR in ', config_path, ': the percentage_read_aligned_abundance variable is empty. Please, complete')
-    percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
-elif type(config["percentage_read_aligned_abundance"]) != int and type(config["percentage_read_aligned_abundance"]) != float :
-    print('ERROR in ', config_path, ': the percentage_read_aligned_abundance is not an interger or float. Please, complete', config_path)
-    percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
+# PHABOX REJECT
+if config["prophage_reject"] is None:
+    print('ERROR in ', config_path, ': the prophage_reject variable is empty. Please, complete')
+    prophage_reject=config["prophage_reject"]
+elif type(config["prophage_reject"]) != int and type(config["prophage_reject"]) != float :
+    print('ERROR in ', config_path, ': the prophage_reject is not an interger or float. Please, complete', config_path)
+    prophage_reject=config["prophage_reject"]
 else:
-    percentage_read_aligned_abundance=config["percentage_read_aligned_abundance"]
+    prophage_reject=config["prophage_reject"]
 
 # CIRCULAR
 if type(config["circular"]) != str:

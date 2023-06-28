@@ -27,12 +27,6 @@ elif path.exists(config['virshimeome_dir']) is False:
 else:
     virshimeome_dir=config["virshimeome_dir"]
 
-if config['local_dir'] is None:
-    #print('ERROR in ')
-    print('ERROR in ', config_path, ': local_dir variable is empty. Please, complete ', config_path)
-else:
-    local_dir = config['local_dir']
-
 if config['download_threads'] is None:
     print('ERROR in ', config_path, ': download_threads variable is empty. Please, complete ', config_path)
 elif type(config['download_threads']) != int:
