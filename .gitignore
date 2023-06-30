@@ -161,14 +161,12 @@ cython_debug/
 
 # Custom
 test/
-bwa.kit/
 .snakemake/
 data/
 conda_env/
 DeepVirFinder/
-FASTA/
-installmcl/
-VFCs/
-mcl/
 PhaBOX/
 **/scratch/
+config/main_test.yaml
+.vscode/
+unit_tests/

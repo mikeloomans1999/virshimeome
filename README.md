@@ -3,7 +3,7 @@ Setting up the initial conda environment:
 ```console
 git clone https://github.com/mikeloomans1999/virshimeome
 cd virshimeome
-conda env create -f scripts/virshimeome.yml
+conda env create -f envs/virshimeome_base.yml
 ```
 
 Configure the config files.
