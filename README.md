@@ -28,36 +28,31 @@ Configuration for the pipeline execution, main.yml.
 ######################
 # Dirs
 PROJECT: # Project name
-working_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome
-local_dir: /projects/arumugam/scratch/mnc390/virome_testing/data/test_data_virshimeome
-virshimeome_dir: # Local virshimeome directory 
-hq_reads_dir: # Reads directory, not currently in use
-contig_dir: # parent directory of contigs/MAGs
-output_dir: # Your assigned output directory
-deep_vir_finder_dir: # Local DeepVirFinder directory
-# Resources 
-memory: # In gigabytes
+virshimeome_dir: # Virshimeome directory
+contig_dir: # Parent directory of all contigs
+output_dir: 
+deep_vir_finder_dir: # Local DeepVirFinder repository
 
 #####################
 ##  Tool settings  ##
 #####################
-# Contig selection (custom script & virsorter2)
-circular: circular # Whether or not you want to filter for circular sequences or any other characteristics mentioned in the sequence identifier. 
-max_contig_length: 500000
-min_contig_length: 2000
+# Contig selection (custom script & virsorter2) # Filtration parameter
+circular:  # Special characters or words mentioned in sequence IDs
+max_contig_length: 
+min_contig_length: 
+
+# VS2
 min_score_vir_recognition: 0.5
 
 # DVF
-min_score_dvf: 0.7
-max_pval_dvf: 0.05
+min_score_dvf: 0.7 # Combination of dvf_score and p-value used as a threshold for DeepVirFinder phage prediction.
+max_pval_dvf: 0.05 
 
-# Read to contig alignment (BWA)
-algorithm_bwa: mem # Currently not in use. 
+# phabox
+prophage_reject: 0.2 # The reject threshold for the PhaBOX tools
 
-# Relative abundance (samtools & msamtools)
-min_length_alignment_abundance: 80  # Currently not in use. 
-ani_threshold: 99.9 # Percentage not decimal  # Currently not in use. 
-percentage_read_aligned_abundance: 80 # Percentage not decimal  # Currently not in use. 
+# ANI
+ani_threshold: 99.9 # Percentage not decimal
 ```
 
 Downloading all the databases
