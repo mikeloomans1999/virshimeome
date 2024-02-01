@@ -2,14 +2,18 @@
 Setting up the initial conda environment:
 ```console
 git clone https://github.com/mikeloomans1999/virshimeome
+```
+```console
 cd virshimeome
-conda env create -f scripts/virshimeome.yml
+```
+```console
+conda env create -f envs/virshimeome_base.yml
 ```
 
 Configure the config files.
-Configuration for the dependencies config file, dependencies.yml.
+Configuration for the dependencies config file, config/dependencies.yml.
 
-```
+``` yaml
 ######################
 # General settings
 ######################
@@ -22,7 +26,7 @@ download_threads: # Number of threads available for downloads
 ```
 
 Configuration for the pipeline execution, main.yml.
-```
+``` yaml    
 ######################
 ## General settings ##
 ######################
