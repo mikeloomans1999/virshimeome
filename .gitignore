@@ -170,3 +170,4 @@ PhaBOX/
 config/main_test.yaml
 .vscode/
 unit_tests/
+cwd/

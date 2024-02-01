@@ -1,4 +1,4 @@
-name: virshimeome
+name: virshimeone
 channels:
   - bioconda
   - bioconda/label/cf201901
@@ -160,4 +160,3 @@ dependencies:
   - zlib=1.2.13=h166bdaf_4
   - zstandard=0.19.0=py310hdeb6495_1
   - zstd=1.5.2=h3eb15da_6
-prefix: /home/mnc390/anaconda3/envs/virshimeome

@@ -2,11 +2,11 @@
 ## General settings ##
 ######################
 # Dirs
-PROJECT: 
-virshimeome_dir: 
-contig_dir: 
-output_dir: 
-deep_vir_finder_dir: 
+PROJECT: mike_test
+virshimeome_dir: /home/mike-loomans/git/extras/virshimeome/
+contig_dir: /home/mike-loomans/git/extras/virshimeome/cwd/data/
+output_dir: /home/mike-loomans/git/extras/virshimeome/cwd/output/
+deep_vir_finder_dir: /home/mike-loomans/git/extras/virshimeome/cwd/DeepVirFinder/
 
 #####################
 ##  Tool settings  ##
